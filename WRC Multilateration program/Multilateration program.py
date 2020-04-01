@@ -33,26 +33,30 @@ def placeObjects(grid, Tx, Rx1, Rx2, Rx3, Target):
 
     return grid
 
-def findDistance(first, second):
+def findNorm(first, second):
     #find distance between 2 points
-    distance = math.sqrt((first[0] - second[0])**2 + (first[1] - second[1])**2)
+    norm = math.sqrt((first[0] - second[0])**2 + (first[1] - second[1])**2)
     
-    return distance
+    return norm
 
-def bruteForce(grid, Tx, Rx1, Rx2, Rx3):
+def bruteForce(grid, Tx, Rx1, Rx2, Rx3, r1, r2, r3):
 
-    rangeSumArray = []
+    LArray = []
     
     for entry in grid:
         
-        currentRange1 = findDistance(Tx, entry) + findDistance(Rx1, entry)
-        currentRange2 = findDistance(Tx, entry) + findDistance(Rx2, entry)
-        currentRange3 = findDistance(Tx, entry) + findDistance(Rx3, entry)
-        rangeSum = currentRange1 + currentRange2 + currentRange3
-        
-        rangeSumArray.append(rangeSum)
+        currentRange1 = findNorm(Tx, entry) + findNorm(Rx1, entry)
+        currentRange2 = findNorm(Tx, entry) + findNorm(Rx2, entry)
+        currentRange3 = findNorm(Tx, entry) + findNorm(Rx3, entry)
 
-    target = grid[rangeSumArray.index(min(rangeSumArray))]
+        L1 = (currentRange1 - r1)**2
+        L2 = (currentRange2 - r2)**2
+        L3 = (currentRange3 - r3)**2
+
+        L = (L1 + L2 + L3)/3
+        LArray.append(L)
+    
+    target = grid[LArray.index(min(LArray))]
     return target
 
 def main():
@@ -65,10 +69,19 @@ def main():
     target = (6, 9)
     xRange = 10
     yRange = 10
-    
+
+    #Create grid + place objects
     grid = createGrid(xRange, yRange)
     grid = placeObjects(grid, Tx, Rx1, Rx2, Rx3, target)
-    result = bruteForce(grid, Tx, Rx1, Rx2, Rx3)
+
+    #calculate true ranges, in practical test this will be given as the output of the SDR
+    r1 = findNorm(Tx, target) + findNorm(Rx1, target)
+    r2 = findNorm(Tx, target) + findNorm(Rx2, target)
+    r3 = findNorm(Tx, target) + findNorm(Rx3, target)
+    
+    #Perform Calculations
+    result = bruteForce(grid, Tx, Rx1, Rx2, Rx3, r1, r2, r3)
+    
     print(result)
     print(grid)
 

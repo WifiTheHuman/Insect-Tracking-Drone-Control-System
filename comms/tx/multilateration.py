@@ -1,16 +1,18 @@
 import math
 import tkinter
 
+
 def createGrid(xRange, yRange):
     #Create a grid
-    
+
     grid = []
     for x in range(xRange):
-      for y in range(yRange):
-        grid.append([x, y, "N"])
+        for y in range(yRange):
+            grid.append([x, y, "N"])
 
     return grid
-    
+
+
 def placeObjects(grid, Tx, Rx1, Rx2, Rx3, Target):
     #Place transmitter, receivers and target on grid
 
@@ -33,18 +35,20 @@ def placeObjects(grid, Tx, Rx1, Rx2, Rx3, Target):
 
     return grid
 
+
 def findNorm(first, second):
     #find distance between 2 points
     norm = math.sqrt((first[0] - second[0])**2 + (first[1] - second[1])**2)
-    
+
     return norm
+
 
 def bruteForce(grid, Tx, Rx1, Rx2, Rx3, r1, r2, r3):
 
     LArray = []
-    
+
     for entry in grid:
-        
+
         currentRange1 = findNorm(Tx, entry) + findNorm(Rx1, entry)
         currentRange2 = findNorm(Tx, entry) + findNorm(Rx2, entry)
         currentRange3 = findNorm(Tx, entry) + findNorm(Rx3, entry)
@@ -53,19 +57,28 @@ def bruteForce(grid, Tx, Rx1, Rx2, Rx3, r1, r2, r3):
         L2 = (currentRange2 - r2)**2
         L3 = (currentRange3 - r3)**2
 
-        L = (L1 + L2 + L3)/3
+        L = (L1 + L2 + L3) / 3
         LArray.append(L)
-    
+
     target = grid[LArray.index(min(LArray))]
     return target
 
-def main():
 
+def estimate_target_position(tx, rx1, rx2, rx3, range1, range2, range3):
+    xRange = 10
+    yRange = 10
+
+    grid = createGrid(xRange, yRange)
+    x, y, name = bruteForce(grid, tx, rx1, rx2, rx3, range1, range2, range3)
+    return x, y
+
+
+def main():
     #Set conditions for localisation testing
     Tx = (0, 0)
     Rx1 = (5, 2)
-    Rx2 =(7, 7)
-    Rx3 =(3, 7)
+    Rx2 = (7, 7)
+    Rx3 = (3, 7)
     target = (6, 9)
     xRange = 10
     yRange = 10
@@ -78,12 +91,13 @@ def main():
     r1 = findNorm(Tx, target) + findNorm(Rx1, target)
     r2 = findNorm(Tx, target) + findNorm(Rx2, target)
     r3 = findNorm(Tx, target) + findNorm(Rx3, target)
-    
+
     #Perform Calculations
     result = bruteForce(grid, Tx, Rx1, Rx2, Rx3, r1, r2, r3)
-    
+
     print(result)
     print(grid)
 
 
-main()
+if __name__ == "__main__":
+    main()

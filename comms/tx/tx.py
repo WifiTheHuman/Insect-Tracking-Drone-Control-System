@@ -2,9 +2,13 @@ import time
 import zmq
 import struct
 
+import multilateration
+
 TX_RECEIVE_PORT = 5555
 TX_SEND_PORT = 5556
 
+# TODO: This must have the value 3 until the multilateration works with an
+# arbitrary number of Rxs.
 NUM_RXS = 3
 
 TX_COORDS = (0, 0)
@@ -34,12 +38,11 @@ def main():
             rx_coords.append((rx_x, rx_y))
             print("Received reading {}".format(range_reading))
 
-        # TODO: For now use the sum of the ranges as the "target position".
-        target_position = sum(range_readings)
-
-        # Publish the target position to the Rxs.
-        message = struct.pack("!f", target_position)
-        print("Sending target position {}".format(target_position))
+        # Estimate the target position and publish it to the Rxs.
+        target_x, target_y = multilateration.estimate_target_position(
+            TX_COORDS, *rx_coords, *range_readings)
+        message = struct.pack("!ii", target_x, target_y)
+        print("Sending target position ({}, {})".format(target_x, target_y))
         sender.send(message)
 
         print()

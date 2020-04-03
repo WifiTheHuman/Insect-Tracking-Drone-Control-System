@@ -63,14 +63,14 @@ def main():
         target_coords = int(target_x), int(target_y)
         range_reading = calculate_range(rx_coords, TX_COORDS, target_coords)
         message = construct_packet(rx_coords, range_reading)
-
         print("Sending range reading {}".format(range_reading))
         sender.send(message)
 
         #  Wait for the Tx to respond with an estimated target position.
         message = receiver.recv()
-        target_position, = struct.unpack("!f", message)
-        print("Received target position {}".format(target_position))
+        received_target_x, received_target_y = struct.unpack("!ii", message)
+        print("Received target position ({}, {})".format(
+            received_target_x, received_target_y))
 
         print()
 

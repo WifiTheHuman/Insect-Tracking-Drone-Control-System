@@ -1,6 +1,8 @@
 import math
 import tkinter
 
+from gps import GPSCoord
+
 
 def createGrid(xRange, yRange):
     #Create a grid
@@ -65,12 +67,10 @@ def bruteForce(grid, Tx, Rx1, Rx2, Rx3, r1, r2, r3):
 
 
 def estimate_target_position(tx, rx1, rx2, rx3, range1, range2, range3):
-    xRange = 10
-    yRange = 10
-
-    grid = createGrid(xRange, yRange)
-    x, y, name = bruteForce(grid, tx, rx1, rx2, rx3, range1, range2, range3)
-    return x, y
+    # TODO: Implement
+    # tx, rx1, rx2, rx3 and the return value are of type GPSCoord from gps.py
+    # The ranges are floats in meters
+    return GPSCoord(0, 0)
 
 
 def main():

@@ -3,6 +3,7 @@ import zmq
 import struct
 
 import multilateration
+from gps import GPSCoord
 
 TX_RECEIVE_PORT = 5555
 TX_SEND_PORT = 5556
@@ -11,7 +12,8 @@ TX_SEND_PORT = 5556
 # arbitrary number of Rxs.
 NUM_RXS = 3
 
-TX_COORDS = (0, 0)
+# Tx position is fixed for now. This value must match the one in rx.py
+TX_COORDS = GPSCoord(-43.52051, 172.58310)
 
 
 def main():
@@ -33,16 +35,18 @@ def main():
         rx_coords = []
         for i in range(NUM_RXS):
             message = receiver.recv()
-            rx_x, rx_y, range_reading = struct.unpack("!iif", message)
+            rx_lat, rx_long, range_reading = struct.unpack("!ddd", message)
+            rx_coord = GPSCoord(rx_lat, rx_long)
+            rx_coords.append(rx_coord)
             range_readings.append(range_reading)
-            rx_coords.append((rx_x, rx_y))
-            print("Received reading {}".format(range_reading))
+            print("Received packet: range {}, Rx coords {}".format(
+                range_reading, rx_coord))
 
         # Estimate the target position and publish it to the Rxs.
-        target_x, target_y = multilateration.estimate_target_position(
+        target_coords = multilateration.estimate_target_position(
             TX_COORDS, *rx_coords, *range_readings)
-        message = struct.pack("!ii", target_x, target_y)
-        print("Sending target position ({}, {})".format(target_x, target_y))
+        message = struct.pack("!dd", target_coords.lat, target_coords.long)
+        print("Sending target coords {}".format(target_coords))
         sender.send(message)
 
         print()

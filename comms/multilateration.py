@@ -2,7 +2,11 @@ import math
 import tkinter
 
 from gps import GPSCoord
+EARTH_RADIUS = 6371000
 
+#current problems: bad formatting converting lat/long to xy
+#inaccurate method, won't work if they're too far away
+#using 100000 to convert lat/long to xyz, if units are different won't work
 
 def createGrid(xRange, yRange):
     #Create a grid
@@ -44,7 +48,6 @@ def findNorm(first, second):
 
     return norm
 
-
 def bruteForce(grid, Tx, Rx1, Rx2, Rx3, r1, r2, r3):
 
     LArray = []
@@ -65,26 +68,105 @@ def bruteForce(grid, Tx, Rx1, Rx2, Rx3, r1, r2, r3):
     target = grid[LArray.index(min(LArray))]
     return target
 
+def calcX(RxiCoord, TxCoord, Tx):
+    #converts gps coords to cartesian X coord
+    x = RxiCoord.lat - TxCoord.lat
+    x = x * 100000#Make variable?
+    xGrid = Tx[0] + x
+    
+    return round(xGrid)
 
+def calcY(RxiCoord, TxCoord, Tx):
+    #converts gps coords to cartesian Y coord
+    y = RxiCoord.long - TxCoord.long
+    y = y * 100000#same here
+    yGrid = Tx[1] + y
+    return round(yGrid)
+
+def cartesianToLatLong(target, Tx, TxCoord):
+    #converts cartesian coords to GPS coords
+    xCoord = target[0] - Tx[0]
+    xCoord = xCoord / 100000
+    xCoord = xCoord + TxCoord.lat
+
+    yCoord = target[1] - Tx[1]
+    yCoord = yCoord / 100000
+    yCoord = yCoord + TxCoord.long
+
+    return GPSCoord(xCoord, yCoord)
+    
 def estimate_target_position(tx, rx1, rx2, rx3, range1, range2, range3):
     # TODO: Implement
     # tx, rx1, rx2, rx3 and the return value are of type GPSCoord from gps.py
     # The ranges are floats in meters
-    return GPSCoord(0, 0)
 
+    #Determine size of grid (metres), create grid
+    xRange = 20
+    yRange = 20
+    grid = createGrid(xRange, yRange)
+
+    #Transmitter drone always centre of grid
+    Tx = (xRange/2, yRange/2)
+    
+    #Set conditions for localisation testing
+    TxCoord = tx
+
+    Rx1Coord = rx1
+    Rx2Coord = rx2
+    Rx3Coord = rx3
+
+    #targetCoord = GPSCoord(-43.52059, 172.58315)
+
+    #Map from GPS to grid locations
+    Rx1 = (calcX(Rx1Coord, TxCoord, Tx), calcY(Rx1Coord, TxCoord, Tx))
+    Rx2 = (calcX(Rx2Coord, TxCoord, Tx), calcY(Rx2Coord, TxCoord, Tx))
+    Rx3 = (calcX(Rx3Coord, TxCoord, Tx), calcY(Rx3Coord, TxCoord, Tx))
+    #target = (calcX(targetCoord, TxCoord, Tx), calcY(targetCoord, TxCoord, Tx))
+    
+    #Place objects
+    grid = placeObjects(grid, Tx, Rx1, Rx2, Rx3, target)
+
+    #calculate true ranges, in practical test this will be given as the output of the SDR
+    r1 = range1
+    r2 = range2
+    r3 = range3
+
+    #Perform Calculations
+    result = bruteForce(grid, Tx, Rx1, Rx2, Rx3, r1, r2, r3)
+
+    #convert back to GPS coord
+    result = cartesianToLatLong(result, Tx, TxCoord)
+    #print(result)
+    #print(grid)
+    
+    return result
 
 def main():
-    #Set conditions for localisation testing
-    Tx = (0, 0)
-    Rx1 = (5, 2)
-    Rx2 = (7, 7)
-    Rx3 = (3, 7)
-    target = (6, 9)
-    xRange = 10
-    yRange = 10
 
-    #Create grid + place objects
+    #Determine size of grid (metres), create grid
+    xRange = 20
+    yRange = 20
     grid = createGrid(xRange, yRange)
+
+    #Transmitter drone always centre of grid
+    Tx = (xRange/2, yRange/2)
+    
+    #Set conditions for localisation testing
+    TxCoord = GPSCoord(-43.52051, 172.58310)
+
+    Rx1Coord = GPSCoord(-43.52046, 172.58305)
+    Rx2Coord = GPSCoord(-43.52046, 172.58310)
+    Rx3Coord = GPSCoord(-43.52056, 172.58305)
+
+    targetCoord = GPSCoord(-43.52059, 172.58315)
+
+    #Map from GPS to grid locations
+    Rx1 = (calcX(Rx1Coord, TxCoord, Tx), calcY(Rx1Coord, TxCoord, Tx))
+    Rx2 = (calcX(Rx2Coord, TxCoord, Tx), calcY(Rx2Coord, TxCoord, Tx))
+    Rx3 = (calcX(Rx3Coord, TxCoord, Tx), calcY(Rx3Coord, TxCoord, Tx))
+    target = (calcX(targetCoord, TxCoord, Tx), calcY(targetCoord, TxCoord, Tx))
+    
+    #Place objects
     grid = placeObjects(grid, Tx, Rx1, Rx2, Rx3, target)
 
     #calculate true ranges, in practical test this will be given as the output of the SDR
@@ -95,6 +177,8 @@ def main():
     #Perform Calculations
     result = bruteForce(grid, Tx, Rx1, Rx2, Rx3, r1, r2, r3)
 
+    #convert back to GPS coord
+    result = cartesianToLatLong(result, Tx, TxCoord)
     print(result)
     print(grid)
 

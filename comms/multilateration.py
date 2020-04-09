@@ -124,7 +124,7 @@ def estimate_target_position(tx, rx1, rx2, rx3, range1, range2, range3):
     #target = (calcX(targetCoord, TxCoord, Tx), calcY(targetCoord, TxCoord, Tx))
     
     #Place objects
-    grid = placeObjects(grid, Tx, Rx1, Rx2, Rx3, target)
+    # grid = placeObjects(grid, Tx, Rx1, Rx2, Rx3, target)
 
     #calculate true ranges, in practical test this will be given as the output of the SDR
     r1 = range1

@@ -82,6 +82,7 @@ def main():
         message = receiver.recv()
         received_target_coords = GPSCoord(*struct.unpack("!dd", message))
         print("Received target coords {}".format(received_target_coords))
+        print("Expected target coords {}".format(target_coords))
 
         print()
 

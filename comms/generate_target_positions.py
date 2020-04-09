@@ -1,6 +1,6 @@
 import random
 
-FILENAME = "target_positions.txt"
+FILENAME = "target_positions_int.txt"
 NUM_READINGS = 1000
 MAX_X = 10
 MAX_Y = 10

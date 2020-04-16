@@ -2,7 +2,6 @@ import math
 import tkinter
 
 from gps import GPSCoord
-EARTH_RADIUS = 6371000
 
 #current problems: bad formatting converting lat/long to xy
 #inaccurate method, won't work if they're too far away
@@ -70,30 +69,21 @@ def bruteForce(grid, Tx, Rx1, Rx2, Rx3, r1, r2, r3):
 
 def calcX(RxiCoord, TxCoord, Tx):
     #converts gps coords to cartesian X coord
-    x = RxiCoord.lat - TxCoord.lat
-    x = x * 100000#Make variable?
+    x = TxCoord.x_distance(RxiCoord)
     xGrid = Tx[0] + x
-    
     return round(xGrid)
 
 def calcY(RxiCoord, TxCoord, Tx):
     #converts gps coords to cartesian Y coord
-    y = RxiCoord.long - TxCoord.long
-    y = y * 100000#same here
+    y = TxCoord.y_distance(RxiCoord)
     yGrid = Tx[1] + y
     return round(yGrid)
 
 def cartesianToLatLong(target, Tx, TxCoord):
     #converts cartesian coords to GPS coords
-    xCoord = target[0] - Tx[0]
-    xCoord = xCoord / 100000
-    xCoord = xCoord + TxCoord.lat
-
-    yCoord = target[1] - Tx[1]
-    yCoord = yCoord / 100000
-    yCoord = yCoord + TxCoord.long
-
-    return GPSCoord(xCoord, yCoord)
+    x = target[0] - Tx[0]
+    y = target[1] - Tx[1]
+    return TxCoord.add_x_offset(x).add_y_offset(y)
     
 def estimate_target_position(tx, rx1, rx2, rx3, range1, range2, range3):
     # TODO: Implement
@@ -155,7 +145,7 @@ def main():
     TxCoord = GPSCoord(-43.52051, 172.58310)
 
     Rx1Coord = GPSCoord(-43.52046, 172.58305)
-    Rx2Coord = GPSCoord(-43.52046, 172.58310)
+    Rx2Coord = GPSCoord(-43.52046, 172.58315)
     Rx3Coord = GPSCoord(-43.52056, 172.58305)
 
     targetCoord = GPSCoord(-43.52059, 172.58315)

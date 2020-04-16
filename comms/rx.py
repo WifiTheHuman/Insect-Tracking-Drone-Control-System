@@ -15,7 +15,7 @@ TARGET_POSITION_FILENAME = "target_positions_gps.txt"
 TX_COORDS = GPSCoord(-43.52051, 172.58310)
 RX_COORDS = [
     GPSCoord(-43.52046, 172.58305),
-    GPSCoord(-43.52046, 172.58310),
+    GPSCoord(-43.52046, 172.58315),
     GPSCoord(-43.52056, 172.58305),
 ]
 

@@ -3,6 +3,7 @@ import math
 # Earth's radius in metres.
 EARTH_RADIUS = 6371000
 
+
 class GPSCoord:
     """ Represents a GPS coordinate with latitude and longitude in
     decimal degrees (DD) format.
@@ -41,7 +42,6 @@ class GPSCoord:
         y = self.y_distance(other)
         return math.sqrt(x * x + y * y)
 
-
     def x_distance(self, other):
         """ Calculates the x component of the distance in meters between two GPS
         coordinates using the equirectangular approximation. """
@@ -51,7 +51,6 @@ class GPSCoord:
         long_2 = math.radians(other.long)
         x = (long_2 - long_1) * math.cos((lat_1 + lat_2) / 2)
         return x * EARTH_RADIUS
-
 
     def y_distance(self, other):
         """ Calculates the y component of the distance in meters between two GPS

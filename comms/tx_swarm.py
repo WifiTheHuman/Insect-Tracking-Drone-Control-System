@@ -18,16 +18,6 @@ drones = [GPSCoord(-43.520508, 172.583089),
           GPSCoord(-43.520553, 172.583027),
           GPSCoord(-43.520553, 172.583151)]
 
-def check_formation(drones):
-    """ check positions of drones. Returns True if formation is adequate,
-    False otherwise. This assumes there are 5 drones """
-    formation = True
-    for drone in drones[1:-1]:
-        if drones[0].distance(drone) < 6:
-            formation = False
-    if drones[1].distance(drones[2]) < 9 or drones[1].distance(drones[3]) < 9 or drones[4].distance(drones[2]) < 9 or drones[4].distance(drones[3]) < 9:
-        formation = False
-    return formation
 
 def main():
     target_file = open("target_positions_gps.txt")
@@ -51,7 +41,7 @@ def main():
         target_loc = GPSCoord.from_nmea(lat.strip(), long.strip())
         
         # If formation is fine, output the target, otherwise output tx position to reset the formation
-        if check_formation(drones) and swarming_logic.check_gps(target_loc, prev_target_loc):
+        if swarming_logic.check_formation(drones) and swarming_logic.check_gps(target_loc, prev_target_loc):
             # Output target location as the desired location
             desired_loc = target_loc
         else:

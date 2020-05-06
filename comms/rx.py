@@ -6,6 +6,7 @@ import threading
 
 from gps import GPSCoord
 from packets import RxUpdate, TxUpdate
+import swarming_logic
 
 TX_IP_ADDRESS = "localhost"
 TX_STARTUP_PORT = 5554
@@ -15,11 +16,13 @@ TX_SEND_PORT = 5556
 TARGET_POSITION_FILENAME = "target_positions_gps.txt"
 
 # For now, the Tx and Rxs are given constant positions, only the target moves.
-TX_COORDS = GPSCoord(-43.52051, 172.58310)
+# These positions are in formation about the first point in target_positions_gps.txt
+TX_COORDS = GPSCoord(-43.520508, 172.583089)
 RX_COORDS = [
-    GPSCoord(-43.52046, 172.58305),
-    GPSCoord(-43.52046, 172.58315),
-    GPSCoord(-43.52056, 172.58305),
+    GPSCoord(-43.520463, 172.583027),
+    GPSCoord(-43.520463, 172.583151),
+    GPSCoord(-43.520553, 172.583027),
+    GPSCoord(-43.520553, 172.583151)
 ]
 
 # How often the Rx should send updates to the Tx.
@@ -57,7 +60,7 @@ def sender_loop(context, rx_id):
 
     target_pos_file = open(TARGET_POSITION_FILENAME)
 
-    rx_coords = RX_COORDS[rx_id]
+    rx_coords = RX_COORDS[rx_id - 1]
 
     while True:
         loop_start_time = time.time()
@@ -89,7 +92,7 @@ def sender_loop(context, rx_id):
             time.sleep(sleep_time)
 
 
-def receiver_loop(context):
+def receiver_loop(context, rx_id):
     # Create a SUB socket to receive updates from the Tx.
     receiver = context.socket(zmq.SUB)
     receiver.connect("tcp://{}:{}".format(TX_IP_ADDRESS, TX_SEND_PORT))
@@ -114,6 +117,9 @@ def receiver_loop(context):
             # Received an update from the Tx.
             update = TxUpdate.from_bytes(receiver.recv())
             print("Received update: {}".format(update))
+            desired_location = swarming_logic.update_loc(update.target_coords, rx_id)
+            print("Desired location: {}".format(desired_location))
+            print()
         else:
             print("Timeout occurred. No updates from Tx in {} s".format(
                 TIMEOUT_S))
@@ -142,10 +148,10 @@ def main():
     # TODO: For now, Rx position is constant and determined by the given ID.
     try:
         rx_id = int(sys.argv[1])
-        assert (rx_id in range(len(RX_COORDS)))
+        assert (rx_id in range(1, len(RX_COORDS) + 1))
     except:
         print(
-            "rx-id must be an integer from 0 to {}".format(len(RX_COORDS) - 1))
+            "rx-id must be an integer from 1 to {}".format(len(RX_COORDS)))
         sys.exit(1)
 
     context = zmq.Context()
@@ -158,7 +164,7 @@ def main():
     sender_inproc.bind("inproc://sender")
 
     # Create a thread to receive updates, and a PAIR socket to communicate with it.
-    receiver = threading.Thread(target=receiver_loop, args=(context, ))
+    receiver = threading.Thread(target=receiver_loop, args=(context, rx_id))
     receiver_inproc = context.socket(zmq.PAIR)
     receiver_inproc.bind("inproc://receiver")
 

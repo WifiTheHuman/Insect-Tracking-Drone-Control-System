@@ -66,3 +66,14 @@ def update_loc(target, drone_num):
         pos = pos.add_y_offset(-5)
     return pos
 
+
+def check_formation(drones):
+    """ Check positions of drones. Returns True if formation is adequate,
+    False otherwise. This assumes there are 5 drones """
+    formation = True
+    for drone in drones[1:-1]:
+        if drones[0].distance(drone) < 6:
+            formation = False
+    if drones[1].distance(drones[2]) < 9 or drones[1].distance(drones[3]) < 9 or drones[4].distance(drones[2]) < 9 or drones[4].distance(drones[3]) < 9:
+        formation = False
+    return formation

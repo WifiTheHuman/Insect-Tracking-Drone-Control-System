@@ -4,11 +4,13 @@ from gps import GPSCoord
 
 
 class RxUpdate:
-    def __init__(self, rx_id, timestamp, rx_coords, range_reading):
+    def __init__(self, rx_id, timestamp, rx_coords, range_reading, target_coords):
         self.rx_id = rx_id
         self.timestamp = timestamp
         self.rx_coords = rx_coords
         self.range = range_reading
+        # TODO: Temporarily send actual target coordinates to Tx for plotting.
+        self.target_coords = target_coords
 
     def __str__(self):
         return "ID {}, time {}, Rx coords {}, range {}".format(
@@ -16,12 +18,14 @@ class RxUpdate:
 
     @staticmethod
     def from_bytes(b):
-        rx_id, timestamp, lat, lon, range_reading = struct.unpack("!idddd", b)
-        return RxUpdate(rx_id, timestamp, GPSCoord(lat, lon), range_reading)
+        (rx_id, timestamp, lat, lon, range_reading, target_lat, target_long) = struct.unpack("!idddddd", b)
+        return RxUpdate(rx_id, timestamp, GPSCoord(lat, lon), range_reading,
+            GPSCoord(target_lat, target_long))
 
     def to_bytes(self):
-        return struct.pack("!idddd", self.rx_id, self.timestamp,
-                           self.rx_coords.lat, self.rx_coords.long, self.range)
+        return struct.pack("!idddddd", self.rx_id, self.timestamp,
+                           self.rx_coords.lat, self.rx_coords.long, self.range,
+                           self.target_coords.lat, self.target_coords.long)
 
 
 class TxUpdate:

@@ -2,6 +2,7 @@ import time
 import zmq
 import struct
 import sys
+import matplotlib.pyplot as plt
 
 import multilateration
 import swarming_logic
@@ -17,6 +18,12 @@ NUM_RXS = 4
 
 # Tx starting position. This value must match the one in rx.py
 TX_START_COORDS = GPSCoord(-43.520508, 172.583089)
+
+# Limits for the expected lat and long, used for plotting the drone positons.
+MIN_LAT = -43.520833
+MAX_LAT = -43.520333
+MIN_LONG = 172.582833
+MAX_LONG = 172.583167
 
 # The drone ID of the transmitter drone.
 TX_ID = 0
@@ -93,19 +100,18 @@ def check_updates(updates, start_time, loop_start_time):
     return updates_available
 
 
-def drone_positions(updates, tx_coords):
-    """ Return a list of the drone positions, with Tx at index 0, and Rxs
-    and indices 1 to 4.
+def get_rx_positions(updates):
+    """ Return a list of the current Rx positions.
 
     TODO: Change this if we don't just want to use the most recent updates.
     """
-    return [tx_coords] + [updates[i][-1].rx_coords for i in range(NUM_RXS)]
+    return [updates[i][-1].rx_coords for i in range(NUM_RXS)]
 
 
 def swarming_checks(updates, tx_coords, target_location, prev_target_location):
     """ If formation is fine, output the target, otherwise output tx position
     to reset the formation. """
-    drones = drone_positions(updates, tx_coords)
+    drones = [tx_coords] + get_rx_positions(updates)
     if (swarming_logic.check_formation(drones)
         and swarming_logic.check_gps(target_location, prev_target_location)):
         # Output target location as the desired location
@@ -132,7 +138,26 @@ def perform_multilateration(updates, tx_coords):
         tx_coords, *rx_coords, *ranges)
 
 
+def plot_positions(tx_coords, updates):
+    """ Plot the current positions of the Tx and the Rxs, and the actual
+    target position. """
+    colors = ['k', 'b', 'g', 'r', 'm']
+    positions = [tx_coords] + get_rx_positions(updates)
+    for i in range(len(positions)):
+        plt.plot(positions[i].long, positions[i].lat, 'x' + colors[i])
+
+    # Get the actual target coords (sent from the Rxs for plotting).
+    actual_target_coords = updates[0][-1].target_coords
+    plt.plot(actual_target_coords.long, actual_target_coords.lat, 'oc')
+
+    # Call pause to render the changes.
+    plt.pause(0.0000001)
+
+
 def main():
+    # Check if we should plot the drone positions on a graph.
+    should_plot = "--plot" in sys.argv
+
     context = zmq.Context()
 
     wait_for_rxs(context)
@@ -155,6 +180,10 @@ def main():
     target_locations = []
 
     start_time = time.time()
+
+    # Create a graph to plot the drone positions if needed.
+    if should_plot:
+        plt.axis([MIN_LONG, MAX_LONG, MIN_LAT, MAX_LAT])
 
     while True:
         loop_start_time = time.time()
@@ -181,6 +210,10 @@ def main():
 
             # Update our own location
             tx_coords = swarming_logic.update_loc(desired_location, TX_ID)
+
+            # Plot the current Tx, Rx and actual target positions if needed.
+            if should_plot:
+                plot_positions(tx_coords, updates)
 
             # Send the desired location and the Tx location to the Rxs.
             update = TxUpdate(desired_location, tx_coords)

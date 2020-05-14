@@ -91,8 +91,9 @@ def sender_loop(context, rx_id):
         tx_coords = GPSCoord(tx_lat, tx_long)
 
         # Send an update containing the Rx position and range.
+        # TODO: Temporarily also send actual target coordinates for plotting.
         range_reading = calculate_range(rx_coords, tx_coords, target_coords)
-        update = RxUpdate(rx_id, time.time(), rx_coords, range_reading)
+        update = RxUpdate(rx_id, time.time(), rx_coords, range_reading, target_coords)
         print("Sending update: {}".format(update))
         sender.send(update.to_bytes())
 

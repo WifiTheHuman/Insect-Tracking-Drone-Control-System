@@ -92,7 +92,10 @@ def check_updates(updates, start_time, loop_start_time):
 
 def drone_positions(updates):
     """ Return a list of the drone positions, with Tx at index 0, and Rxs
-    and indices 1 to 4. """
+    and indices 1 to 4.
+
+    TODO: Change this if we don't just want to use the most recent updates.
+    """
     return [TX_COORDS] + [updates[i][-1].rx_coords for i in range(NUM_RXS)]
 
 
@@ -116,6 +119,7 @@ def perform_multilateration(updates):
 
     TODO: For now, only use readings from the first 3 Rxs for multilateration.
     Remove this once multilateration works with 4 Rxs.
+    TODO: Change this if we don't just want to use the most recent updates.
     """
     num_rxs = 3
     rx_coords = [updates[i][-1].rx_coords for i in range(num_rxs)]

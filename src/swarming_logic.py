@@ -66,14 +66,81 @@ def update_loc(target, drone_num):
         pos = pos.add_y_offset(-5)
     return pos
 
+def centres_from_drones(drones):
+    """ returns a list of the expected GPSCoords centre of the formation, 
+    from the list of drone GPSCoords """
+    centres = ['','','','','']
+    centres[0] = drones[0]
+    if drones[1] != '':
+        centres[1] = drones[1].add_x_offset(5)
+        centres[1] = centres[1].add_y_offset(-5)
+    if drones[2] != '':
+        centres[2] = drones[2].add_x_offset(-5)
+        centres[2] = centres[2].add_y_offset(-5)
+    if drones[3] != '':
+        centres[3] = drones[3].add_x_offset(5)
+        centres[3] = centres[3].add_y_offset(5)
+    if drones[4] != '':
+        centres[4] = drones[4].add_x_offset(-5)
+        centres[4] = centres[4].add_y_offset(5)
+    return centres
+
+def mean_centre(centres):
+    """ Returns the mean average GPSCoord of the centres list, or '' if list is empty
+    Returns the error; the grestest distance in m from the mean to  """
+    n = 0
+    lat_sum = 0
+    long_sum = 0
+    error = 0
+    for centre in centres:
+        if centre != '':
+            lat_sum += centre.lat
+            long_sum += centre.long
+            n += 1
+    
+    if n != 0:
+        mean_centre = GPSCoord(lat_sum / n, long_sum / n)
+    else:
+        mean_centre = ''
+        print("Warning: Empty centres list")
+    
+    # Find error in mean centre
+    for centre in centres:
+        if centre != '' and mean_centre != '' and centre.distance(mean_centre) > error:
+            error = centre.distance(mean_centre)
+    
+    return mean_centre, error
+
 
 def check_formation(drones):
-    """ Check positions of drones. Returns True if formation is adequate,
-    False otherwise. This assumes there are 5 drones """
+    """ Checks positions of drones. Returns True if formation is adequate, False otherwise.
+    Works for up to 5 drones. If formation is False, we need to check critical_formation(drones).  """
+    
     formation = True
-    for drone in drones[1:-1]:
-        if drones[0].distance(drone) < 6:
-            formation = False
-    if drones[1].distance(drones[2]) < 9 or drones[1].distance(drones[3]) < 9 or drones[4].distance(drones[2]) < 9 or drones[4].distance(drones[3]) < 9:
+    
+    # Estimate (mean) the centre of the formation
+    centres = centres_from_drones(drones)
+    est_centre, error = mean_centre(centres)
+    
+    # Check if est_centre is valid
+    if error > 3:
+        print("Warning: Invalid centre estimate, bad formation")
         formation = False
+    else:
+        # Check drone positions with respect to the estimated centre
+        for i in range(len(drones)):
+            if drones[i] != '' and est_centre != '':
+                desired_loc = update_loc(est_centre, i)
+                if desired_loc.distance(drones[i]) > 2:
+                    formation = False
+                    print("Drone {} out of formation".format(i))
+        
     return formation
+
+def critical_formation(drones):
+    """ Checks positions of drones relative to each other, to detect if
+    drones are in positions such that formation cannot be restored """
+    # NEED TO DEFINE WHAT A CRITICAL FORMATION LOOKS LIKE
+    # Drone 1 must be top left, 2 top right, 3 bottom left, 4 bottom right from Tx (centre)
+    # All drones must have at least 3 m between each other
+    

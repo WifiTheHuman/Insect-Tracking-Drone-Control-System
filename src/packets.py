@@ -25,17 +25,22 @@ class RxUpdate:
 
 
 class TxUpdate:
-    def __init__(self, target_coords):
+    def __init__(self, target_coords, tx_coords):
         self.target_coords = target_coords
+        # TODO: for now, the Tx sends it's own coordinates to the Rx as well,
+        # for use in calculating the range based on an emulated target position.
+        self.tx_coords = tx_coords
 
     def __str__(self):
-        return "Target position {}".format(self.target_coords)
+        return "Target position {}, Tx coords {}".format(
+            self.target_coords, self.tx_coords)
 
     @staticmethod
     def from_bytes(b):
-        lat, lon = struct.unpack("!dd", b)
-        return TxUpdate(GPSCoord(lat, lon))
+        target_lat, target_long, tx_lat, tx_long = struct.unpack("!dddd", b)
+        return TxUpdate(GPSCoord(target_lat, target_long),
+                        GPSCoord(tx_lat, tx_long))
 
     def to_bytes(self):
-        return struct.pack("!dd", self.target_coords.lat,
-                           self.target_coords.long)
+        return struct.pack("!dddd", self.target_coords.lat,
+            self.target_coords.long, self.tx_coords.lat, self.tx_coords.long)

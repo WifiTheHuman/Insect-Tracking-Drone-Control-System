@@ -15,8 +15,11 @@ TX_SEND_PORT = 5556
 # This must have the value 4 to work with the swarming logic.
 NUM_RXS = 4
 
-# Tx position is fixed for now. This value must match the one in rx.py
-TX_COORDS = GPSCoord(-43.520508, 172.583089)
+# Tx starting position. This value must match the one in rx.py
+TX_START_COORDS = GPSCoord(-43.520508, 172.583089)
+
+# The drone ID of the transmitter drone.
+TX_ID = 0
 
 # How often the Tx should perform multilateration and send an update.
 UPDATE_PERIOD_S = 1
@@ -90,31 +93,31 @@ def check_updates(updates, start_time, loop_start_time):
     return updates_available
 
 
-def drone_positions(updates):
+def drone_positions(updates, tx_coords):
     """ Return a list of the drone positions, with Tx at index 0, and Rxs
     and indices 1 to 4.
 
     TODO: Change this if we don't just want to use the most recent updates.
     """
-    return [TX_COORDS] + [updates[i][-1].rx_coords for i in range(NUM_RXS)]
+    return [tx_coords] + [updates[i][-1].rx_coords for i in range(NUM_RXS)]
 
 
-def swarming_checks(updates, target_location, prev_target_location):
+def swarming_checks(updates, tx_coords, target_location, prev_target_location):
     """ If formation is fine, output the target, otherwise output tx position
     to reset the formation. """
-    drones = drone_positions(updates)
+    drones = drone_positions(updates, tx_coords)
     if (swarming_logic.check_formation(drones)
         and swarming_logic.check_gps(target_location, prev_target_location)):
         # Output target location as the desired location
         desired_location = target_location
     else:
         # Output mothership position as the desired location, to reset formation
-        desired_location =  TX_COORDS
+        desired_location = tx_coords
         print("RESET FORMATION")
     return desired_location
 
 
-def perform_multilateration(updates):
+def perform_multilateration(updates, tx_coords):
     """ Returns the target position estimated by the multilateration module.
 
     TODO: For now, only use readings from the first 3 Rxs for multilateration.
@@ -126,7 +129,7 @@ def perform_multilateration(updates):
     ranges = [updates[i][-1].range for i in range(num_rxs)]
 
     return multilateration.estimate_target_position(
-        TX_COORDS, *rx_coords, *ranges)
+        tx_coords, *rx_coords, *ranges)
 
 
 def main():
@@ -141,6 +144,8 @@ def main():
     # PUB socket for sending target position estimates to the Rxs.
     sender = context.socket(zmq.PUB)
     sender.bind("tcp://*:{}".format(TX_SEND_PORT))
+
+    tx_coords = TX_START_COORDS
 
     # Store all the updates received, with a separate list for each Rx.
     # TODO: also write the updates to a log file?
@@ -160,22 +165,25 @@ def main():
 
         # If we have an update from each Rx, perform multilateration.
         if updates_available:
-            target_coords = perform_multilateration(updates)
+            target_coords = perform_multilateration(updates, tx_coords)
             target_locations.append(target_coords)
 
             # Perform swarming checks, unless this is our first estimation
             # (since we don't have a previous target location yet).
             if len(target_locations) >= 2:
-                desired_location = swarming_checks(
-                    updates, target_locations[-1], target_locations[-2])
+                desired_location = swarming_checks(updates, tx_coords,
+                    target_locations[-1], target_locations[-2])
             else:
                 desired_location = target_coords
 
             print("Target Location:", target_coords)
             print("Desired Location:", desired_location)
 
-            # Send the desired location to the Rxs.
-            update = TxUpdate(desired_location)
+            # Update our own location
+            tx_coords = swarming_logic.update_loc(desired_location, TX_ID)
+
+            # Send the desired location and the Tx location to the Rxs.
+            update = TxUpdate(desired_location, tx_coords)
             print("Sending update: {}".format(update))
             sender.send(update.to_bytes())
 

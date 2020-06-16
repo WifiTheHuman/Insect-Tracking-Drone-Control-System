@@ -4,12 +4,13 @@ from gps import GPSCoord
 
 
 class RxUpdate:
-    def __init__(self, rx_id, timestamp, rx_coords, range_reading, target_coords):
+    def __init__(self, rx_id, timestamp, rx_coords, range_reading,
+                 target_coords):
         self.rx_id = rx_id
         self.timestamp = timestamp
         self.rx_coords = rx_coords
         self.range = range_reading
-        # TODO: Temporarily send actual target coordinates to Tx for plotting.
+        # TODO: Only used for plotting, remove when no longer needed.
         self.target_coords = target_coords
 
     def __str__(self):
@@ -18,9 +19,10 @@ class RxUpdate:
 
     @staticmethod
     def from_bytes(b):
-        (rx_id, timestamp, lat, lon, range_reading, target_lat, target_long) = struct.unpack("!idddddd", b)
+        (rx_id, timestamp, lat, lon, range_reading, target_lat,
+         target_long) = struct.unpack("!idddddd", b)
         return RxUpdate(rx_id, timestamp, GPSCoord(lat, lon), range_reading,
-            GPSCoord(target_lat, target_long))
+                        GPSCoord(target_lat, target_long))
 
     def to_bytes(self):
         return struct.pack("!idddddd", self.rx_id, self.timestamp,
@@ -31,8 +33,8 @@ class RxUpdate:
 class TxUpdate:
     def __init__(self, target_coords, tx_coords):
         self.target_coords = target_coords
-        # TODO: for now, the Tx sends it's own coordinates to the Rx as well,
-        # for use in calculating the range based on an emulated target position.
+        # TODO: Only used for calculating emulated ranges, remove when no longer
+        # needed.
         self.tx_coords = tx_coords
 
     def __str__(self):
@@ -47,4 +49,5 @@ class TxUpdate:
 
     def to_bytes(self):
         return struct.pack("!dddd", self.target_coords.lat,
-            self.target_coords.long, self.tx_coords.lat, self.tx_coords.long)
+                           self.target_coords.long, self.tx_coords.lat,
+                           self.tx_coords.long)

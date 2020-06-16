@@ -1,25 +1,28 @@
 import time
 import zmq
-import struct
 import sys
 import matplotlib.pyplot as plt
+import argparse
 
 import multilateration
 import swarming_logic
 from gps import GPSCoord
 from packets import RxUpdate, TxUpdate
 
+# Must match the port numbers in rx.py
 TX_STARTUP_PORT = 5554
 TX_RECEIVE_PORT = 5555
 TX_SEND_PORT = 5556
 
-# This must have the value 4 to work with the swarming logic.
+# This must match the value in rx.py, and be compatible with the swarming logic
+# and the multilateration.
 NUM_RXS = 4
 
 # Tx starting position. This value must match the one in rx.py
 TX_START_COORDS = GPSCoord(-43.520508, 172.583089)
 
-# Limits for the expected lat and long, used for plotting the drone positons.
+# Latitude and logtitude limits for the expected drone and target coordinates.
+# Used to define the boundaries of the plot.
 MIN_LAT = -43.520833
 MAX_LAT = -43.520333
 MIN_LONG = 172.582833
@@ -41,33 +44,50 @@ class TimeoutException(Exception):
 
 def wait_for_rxs(context):
     """ Wait for a ready message to be received from each Rx, then send a
-    reply once all Rxs are ready. """
+    reply once all Rxs are ready.
+    """
     startup = context.socket(zmq.ROUTER)
     startup.bind("tcp://*:{}".format(TX_STARTUP_PORT))
 
-    # Keep track of the Rx IDs which are ready, mapping each to its address.
+    # Keep track of the Rx IDs which are ready.
+    # Each ID is mapped to its address, so that the Tx can send a response to
+    # the same addresses once all Rxs are ready.
     ready_ids = {}
 
     print("Waiting for ready messages from Rxs...")
     while len(ready_ids) < NUM_RXS:
         address, empty, message = startup.recv_multipart()
+        # The ready message is a single byte containing the Rx ID.
         rx_id = message[0]
-        print("Rx {} ready.".format(rx_id))
         ready_ids[rx_id - 1] = address
+        print("Rx {} ready.".format(rx_id))
 
     print("All Rxs ready.")
 
-    # Let the Rxs know the Tx is ready.
+    # Let the Rxs know the Tx is ready (with an empty message).
     for address in ready_ids.values():
         startup.send_multipart([address, b'', b''])
 
     startup.close()
 
 
+def receive_initial_updates(receiver, updates):
+    """ Receive updates until there is at least one from each Rx. raising a
+    TimeoutException if this takes longer than the timeout period.
+    """
+    start_time = time.time()
+
+    while not all(len(update_list) > 0 for update_list in updates):
+        receive_updates(receiver, updates)
+        if time.time() > start_time + TIMEOUT_S:
+            raise TimeoutException(
+                "Timeout waiting for initial updates from every Rx")
+
 
 def receive_updates(receiver, updates):
     """ Receive any packets available from the receiver socket without blocking,
-    storing them in the updates list. """
+    storing them in the updates list.
+    """
     while True:
         try:
             message = receiver.recv(flags=zmq.NOBLOCK)
@@ -79,48 +99,17 @@ def receive_updates(receiver, updates):
             return
 
 
-
-def check_updates(updates, start_time, loop_start_time):
-    """ Check that we have at least one update from each Rx, and that they
-    aren't older than the timeout period. If timeout has occurred, raise a
-    Timeout"""
-    updates_available = True
+def check_for_timeout(updates):
+    """ Check that we have an update from each Rx which is more recent than the
+    timeout period. If timeout has occurred, raise a TimeoutException.
+    """
     for rx_id in range(1, NUM_RXS + 1):
-        if len(updates[rx_id - 1]) == 0:
-            print("No updates from Rx {} yet.".format(rx_id))
-            updates_available = False
-            last_update_time = start_time
-        else:
-            last_update_time = updates[rx_id - 1][-1].timestamp
+        last_update_time = updates[rx_id - 1][-1].timestamp
 
-        if loop_start_time - last_update_time > TIMEOUT_S:
+        if time.time() > last_update_time + TIMEOUT_S:
             raise TimeoutException(
                 "Timeout occurred. No updates from Rx {} in {} s.".format(
-                rx_id, TIMEOUT_S))
-    return updates_available
-
-
-def get_rx_positions(updates):
-    """ Return a list of the current Rx positions.
-
-    TODO: Change this if we don't just want to use the most recent updates.
-    """
-    return [updates[i][-1].rx_coords for i in range(NUM_RXS)]
-
-
-def swarming_checks(updates, tx_coords, target_location, prev_target_location):
-    """ If formation is fine, output the target, otherwise output tx position
-    to reset the formation. """
-    drones = [tx_coords] + get_rx_positions(updates)
-    if (swarming_logic.check_formation(drones)
-        and swarming_logic.check_gps(target_location, prev_target_location)):
-        # Output target location as the desired location
-        desired_location = target_location
-    else:
-        # Output mothership position as the desired location, to reset formation
-        desired_location = tx_coords
-        print("RESET FORMATION")
-    return desired_location
+                    rx_id, TIMEOUT_S))
 
 
 def perform_multilateration(updates, tx_coords):
@@ -134,8 +123,33 @@ def perform_multilateration(updates, tx_coords):
     rx_coords = [updates[i][-1].rx_coords for i in range(num_rxs)]
     ranges = [updates[i][-1].range for i in range(num_rxs)]
 
-    return multilateration.estimate_target_position(
-        tx_coords, *rx_coords, *ranges)
+    return multilateration.estimate_target_position(tx_coords, *rx_coords,
+                                                    *ranges)
+
+
+def get_rx_positions(updates):
+    """ Return a list of the current Rx positions.
+
+    TODO: Change this if we don't just want to use the most recent updates.
+    """
+    return [updates[i][-1].rx_coords for i in range(NUM_RXS)]
+
+
+def swarming_checks(tx_coords, rx_positions, target_coords,
+                    previous_target_coords):
+    """ Return the desired centre position of the formation. If formation is
+    fine, output the target position, otherwise output the Tx position to reset
+    the formation.
+    """
+    if (swarming_logic.check_formation([tx_coords] + rx_positions) and
+            swarming_logic.check_gps(target_coords, previous_target_coords)):
+        # Output target position as the desired centre position.
+        return target_coords
+    else:
+        # Output mothership position as the desired centre position, to reset
+        # the formation.
+        print("RESET FORMATION")
+        return tx_coords
 
 
 def plot_positions(tx_coords, updates):
@@ -155,8 +169,14 @@ def plot_positions(tx_coords, updates):
 
 
 def main():
-    # Check if we should plot the drone positions on a graph.
-    should_plot = "--plot" in sys.argv
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-p',
+        '--plot',
+        action='store_true',
+        help='plots the drone and target positions on a graph during execution'
+    )
+    should_plot = parser.parse_args().plot
 
     context = zmq.Context()
 
@@ -170,57 +190,58 @@ def main():
     sender = context.socket(zmq.PUB)
     sender.bind("tcp://*:{}".format(TX_SEND_PORT))
 
+    # Current position of the Tx, initialised to its hard-coded start position,
+    # then updated based on the desired location output by the swaming logic.
+    # TODO: Eventually this will be the real position read from a GPS module.
     tx_coords = TX_START_COORDS
 
     # Store all the updates received, with a separate list for each Rx.
-    # TODO: also write the updates to a log file?
+    # TODO: only store updates temporarily then write them to a log file?
     updates = [[] for _ in range(NUM_RXS)]
 
-    # Store all the estimated target locations.
-    target_locations = []
-
-    start_time = time.time()
-
-    # Create a graph to plot the drone positions if needed.
+    # Create a graph to plot the drone and target positions, if necessary.
     if should_plot:
         plt.axis([MIN_LONG, MAX_LONG, MIN_LAT, MAX_LAT])
+
+    # Wait until at least one update is received from each Rx.
+    receive_initial_updates(receiver, updates)
+
+    # Store all the estimated target positions.
+    # Perform an initial multilateration, so that the swarming checks have a
+    # previous target position to compare against.
+    # TODO: only store positions temporarily then write them to a log file?
+    target_positions = [perform_multilateration(updates, tx_coords)]
 
     while True:
         loop_start_time = time.time()
 
         receive_updates(receiver, updates)
+        check_for_timeout(updates)
 
-        updates_available = check_updates(updates, start_time, loop_start_time)
+        target_coords = perform_multilateration(updates, tx_coords)
+        target_positions.append(target_coords)
 
-        # If we have an update from each Rx, perform multilateration.
-        if updates_available:
-            target_coords = perform_multilateration(updates, tx_coords)
-            target_locations.append(target_coords)
+        desired_centre_position = swarming_checks(tx_coords,
+                                                  get_rx_positions(updates),
+                                                  target_positions[-1],
+                                                  target_positions[-2])
 
-            # Perform swarming checks, unless this is our first estimation
-            # (since we don't have a previous target location yet).
-            if len(target_locations) >= 2:
-                desired_location = swarming_checks(updates, tx_coords,
-                    target_locations[-1], target_locations[-2])
-            else:
-                desired_location = target_coords
+        print("Estimated target position:", target_coords)
+        print("Desired formation centre:", desired_centre_position)
 
-            print("Target Location:", target_coords)
-            print("Desired Location:", desired_location)
+        # Update the Tx's own position.
+        tx_coords = swarming_logic.update_loc(desired_centre_position, TX_ID)
 
-            # Update our own location
-            tx_coords = swarming_logic.update_loc(desired_location, TX_ID)
+        # Plot the current Tx, Rx and actual target positions if needed.
+        if should_plot:
+            plot_positions(tx_coords, updates)
 
-            # Plot the current Tx, Rx and actual target positions if needed.
-            if should_plot:
-                plot_positions(tx_coords, updates)
+        # Send the desired centre position and the Tx position to the Rxs.
+        update = TxUpdate(desired_centre_position, tx_coords)
+        print("Sending update: {}".format(update))
+        sender.send(update.to_bytes())
 
-            # Send the desired location and the Tx location to the Rxs.
-            update = TxUpdate(desired_location, tx_coords)
-            print("Sending update: {}".format(update))
-            sender.send(update.to_bytes())
-
-            print()
+        print()
 
         # Sleep until it's time to perform multilateration again.
         sleep_time = UPDATE_PERIOD_S - (time.time() - loop_start_time)

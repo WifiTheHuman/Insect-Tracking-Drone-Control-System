@@ -54,8 +54,7 @@ class ReceiverUAV:
 
         # Create a PUSH socket to send updates to the Tx.
         self.sender = context.socket(zmq.PUSH)
-        self.sender.setsockopt(zmq.LINGER,
-                               0)  # Exit even if there are unsent updates.
+        self.sender.setsockopt(zmq.LINGER, 0)  # Exit despite unsent updates.
         self.sender.connect("tcp://{}:{}".format(TX_IP_ADDRESS,
                                                  TX_RECEIVE_PORT))
 
@@ -63,7 +62,7 @@ class ReceiverUAV:
         self.receiver = context.socket(zmq.SUB)
         self.receiver.connect("tcp://{}:{}".format(TX_IP_ADDRESS,
                                                    TX_SEND_PORT))
-        self.receiver.setsockopt_string(zmq.SUBSCRIBE, "")  # TODO: change this?
+        self.receiver.setsockopt_string(zmq.SUBSCRIBE, "")
 
         # Current position of this Rx, initialised to its hard-coded start position,
         # then updated to the new desired position output by the swarming logic.
@@ -79,11 +78,9 @@ class ReceiverUAV:
         # File containing the coordinates of the emulated target path.
         self.target_pos_file = open(TARGET_POSITION_FILENAME)
 
-        # Last time an update from the Tx was received, to check for timeout.
-        self.last_update_received_time = time.time()
-
-        # Last time an update was sent to the Tx, to check if its time to send another.
-        self.last_update_sent_time = time.time()
+        # A sequence number for the readings taken. Sent to the Tx, which uses
+        # it to group readings from all the Rxs which have the same number.
+        self.reading_number = 0
 
         # Poller required to set a timeout on receiving from the receiver socket.
         self.poller = zmq.Poller()
@@ -131,8 +128,10 @@ class ReceiverUAV:
 
         # TODO: For now, also send the actual target coordinates so the Tx can plot
         # them. Remove this when no longer needed.
-        update = RxUpdate(self.rx_id, time.time(), self.rx_coords,
-                          range_reading, target_coords)
+        update = RxUpdate(self.rx_id, time.time(), self.reading_number,
+                          self.rx_coords, range_reading, target_coords)
+        self.reading_number += 1
+
         self.sender.send(update.to_bytes())
         print("Sending update: {}".format(update))
 
@@ -141,24 +140,30 @@ class ReceiverUAV:
         Receives updates from the Tx whenever they arrive, and sends updates
         to the Tx every UPDATE_PERIOD_S.
         """
+        # Last time an update from the Tx was received, to check for timeout.
+        last_update_received_time = time.time()
+
+        # Last time an update was sent to the Tx, to check if its time to send another.
+        last_update_sent_time = time.time()
+
         while True:
             sockets = dict(self.poller.poll(timeout=LOOP_PERIOD_MS))
             if self.receiver in sockets:
                 # Update Rx and Tx positions based on received update.
                 self.rx_coords, self.tx_coords = self.receive_update()
-                self.last_update_received_time = time.time()
+                last_update_received_time = time.time()
                 print()
             else:
                 # Didn't receive an update from the Tx, check if timeout occurred.
-                if time.time() >= self.last_update_received_time + TIMEOUT_S:
+                if time.time() >= last_update_received_time + TIMEOUT_S:
                     raise TimeoutException(
                         "Timeout occurred. No updates from Tx in {} s.".format(
                             TIMEOUT_S))
 
             # Check if it's time to send an update
-            if time.time() >= self.last_update_sent_time + UPDATE_PERIOD_S:
+            if time.time() >= last_update_sent_time + UPDATE_PERIOD_S:
                 self.send_update()
-                self.last_update_sent_time = time.time()
+                last_update_sent_time = time.time()
 
 
 def wait_for_tx(context, rx_id):

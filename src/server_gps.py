@@ -31,7 +31,7 @@ def main():
 
         if splitline[0] == GPGGA:
             date = time.localtime(time.time())
-            gps_time = "{}:{}:{}".format(splitline[1][:2], splitline[1][2:4], splitline[1][4:])
+            gps_time = "{}:{}:{}".format(splitline[1][:2], splitline[1][2:4], splitline[1][4:-4])
             time_sample = "{} {}  {} {} {}".format(WEEKDAYS[date.tm_wday], MONTHS[date.tm_mon-1], 
                 date.tm_mday, gps_time, date.tm_year)
             latitude_nmea = splitline[2] + splitline[3]
@@ -39,7 +39,9 @@ def main():
             coord = GPSCoord.from_nmea(latitude_nmea, longitude_nmea)
 
             print_message = "{},{:.5f},{:.5f}".format(time_sample, coord.lat, coord.long)
-            message = "{},{},{}".format(time_sample, latitude_nmea, longitude_nmea)
+            message = "{},{:.5f},{:.5f}".format(time_sample, coord.lat, coord.long)
+            storage = open("gps_storage.txt","w")
+            storage.write(message + '\n')
             print("Sending: {}".format(print_message))
             socket.send(message.encode('utf-8'))
 

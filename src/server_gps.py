@@ -11,11 +11,16 @@ WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 GPGGA = '$GPGGA'
 
-def main():
+def init_socket():
     # Socket to send readings to the client.
     context = zmq.Context()
     socket = context.socket(zmq.PUB)
     socket.bind("tcp://*:{}".format(PORT))
+    return socket
+
+def main():
+    # Socket to send readings to the client.
+    socket = init_socket()
 
     ser = serial.Serial('../../../../../../../dev/tty.usbserial', 4800, timeout=5)
     line = ser.readline()   # Read remaining junk line so that next line is clean
@@ -43,6 +48,8 @@ def main():
             storage = open("gps_storage.txt","w")
             storage.write(message + '\n')
             print("Sending: {}".format(print_message))
+
+            # Send new gps data to NUC
             socket.send(message.encode('utf-8'))
 
 

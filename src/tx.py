@@ -229,7 +229,7 @@ class TransmitterUAV:
         if not(swarming_logic.critical_formation(drone_positions)):
             # If formation is critical stop the drones
             #TODO: Stop the drones moving if critical
-            output_dest = None
+            output_dest = est_centre # change this in future
             print("ERROR: CRITICAL - STOP THE DRONES")
         elif not(swarming_logic.check_formation(drone_positions, est_centre, error)):
             # Output the average centre of the drones as the destination to reset the formation        

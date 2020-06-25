@@ -204,26 +204,43 @@ class TransmitterUAV:
 
         return multilateration.estimate_target_position(
             self.tx_coords, *rx_coords, *ranges)
-
+        
     def swarming_checks(self):
-        """ Return the desired centre position of the formation. If formation is
-        fine, output the target position, otherwise output the Tx position to reset
-        the formation.
-        """
+        """ Returns the desired centre position of the formation. 
+        If formation is fine, output the target position, 
+        otherwise outputs the averaged centre of the formation. """
         drone_positions = [self.tx_coords] + self.updates.get_rx_positions()
         target_coords = self.target_positions[-1]
         previous_target_coords = self.target_positions[-2]
-
-        if (swarming_logic.check_formation(drone_positions)
-                and swarming_logic.check_gps(target_coords,
-                                             previous_target_coords)):
-            # Output target position as the desired centre position.
-            return target_coords
-        else:
-            # Output mothership position as the desired centre position, to reset
-            # the formation.
+        
+        # Estimate (mean) the centre of the formation   
+        centres = swarming_logic.centres_from_drones(drone_positions)
+        est_centre, error = swarming_logic.mean_centre(centres)
+        
+        # Check the target position is valid 
+        if not(swarming_logic.check_gps(target_coords, previous_target_coords)):
+            # Replace target with previous_target if target coord is bad
+            target_coords = previous_target_coords
+            print("ERROR: BAD TARGET GPS COORD")
+            self.target_positions[-1] = previous_target_coords # This is ugly
+            # TODO: for consecutinve bad readings, stop the drones / move back home
+        
+        # Check the drone formation
+        if not(swarming_logic.critical_formation(drone_positions)):
+            # If formation is critical stop the drones
+            #TODO: Stop the drones moving if critical
+            output_dest = est_centre # change this in future
+            print("ERROR: CRITICAL - STOP THE DRONES")
+        elif not(swarming_logic.check_formation(drone_positions, est_centre, error)):
+            # Output the average centre of the drones as the destination to reset the formation        
+            output_dest = est_centre
             print("RESET FORMATION")
-            return self.tx_coords
+        else:
+            # Output target position as the destination
+            print("UPDATE TARGET")
+            output_dest = target_coords 
+        
+        return output_dest  
 
     def plot_positions(self):
         """ Plot the current positions of the Tx and the Rxs, and the actual

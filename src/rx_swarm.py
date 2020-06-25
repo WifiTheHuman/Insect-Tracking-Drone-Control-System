@@ -25,6 +25,6 @@ def main():
         # Output desired position
         target_loc = GPSCoord.from_nmea(lat.strip(), long.strip())
         desired_loc = swarming_logic.update_loc(target_loc, drone_num)
-        print(target_loc, desired_loc)
+        print("Target Loc: {} Desired Loc: {}".format(target_loc , desired_loc))
 
 main()

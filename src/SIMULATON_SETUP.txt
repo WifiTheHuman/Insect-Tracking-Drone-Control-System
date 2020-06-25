@@ -11,7 +11,7 @@ modified empty world setup to use latitude and longitude as a reference frame.
 roslaunch px4 mavros_posix_sitl.launch
 
 QGroundControl can be launched at any time but it should now be able to connect to
-the drone and control it. It can be downloaded at
+the drone and control it. It can be downloaded at http://qgroundcontrol.com/downloads/
 
 To control one drone using MAVROS and gps setpoints execute the following commands from the
 "Firmware" directory. This will launch the drone and hover at 20 m, continually updating

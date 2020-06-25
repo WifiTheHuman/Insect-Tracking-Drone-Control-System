@@ -213,8 +213,8 @@ class MavrosOffboardPosctl(MavrosTestCommon):
 
         rospy.loginfo("run mission")
         timeout = 30 # seconds
-        max_attempts = 50
-        rate = rospy.Rate(2)
+        max_attempts = 100
+        rate = rospy.Rate(5)
 
         while not self.server_disconnected(max_attempts):
             self.update_setpoint(altitude, timeout)

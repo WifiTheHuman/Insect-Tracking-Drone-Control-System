@@ -1,5 +1,6 @@
 import math
-import tkinter
+from scipy import optimize
+import time
 
 from gps import GPSCoord
 
@@ -47,21 +48,21 @@ def findNorm(first, second):
 
     return norm
 
-def bruteForce(grid, Tx, Rx1, Rx2, Rx3, r1, r2, r3):
+def bruteForce(grid, Tx, receiverArray, rangeArray, numDrones):
 
     LArray = []
 
     for entry in grid:
-
-        currentRange1 = findNorm(Tx, entry) + findNorm(Rx1, entry)
-        currentRange2 = findNorm(Tx, entry) + findNorm(Rx2, entry)
-        currentRange3 = findNorm(Tx, entry) + findNorm(Rx3, entry)
-
-        L1 = (currentRange1 - r1)**2
-        L2 = (currentRange2 - r2)**2
-        L3 = (currentRange3 - r3)**2
-
-        L = (L1 + L2 + L3) / 3
+        
+        currentRange = [None] * numDrones
+        L = [None] * numDrones
+        LSum = 0
+        for i in range(0, numDrones-1):
+            currentRange[i] = findNorm(Tx, entry) + findNorm(receiverArray[i], entry)
+            L[i] = (currentRange[i] - rangeArray[i])**2
+            LSum = LSum + L[i]
+            
+        Ltotal = LSum / numDrones
         LArray.append(L)
 
     target = grid[LArray.index(min(LArray))]
@@ -85,55 +86,41 @@ def cartesianToLatLong(target, Tx, TxCoord):
     y = target[1] - Tx[1]
     return TxCoord.add_x_offset(x).add_y_offset(y)
     
-def estimate_target_position(tx, rx1, rx2, rx3, range1, range2, range3):
-    # TODO: Implement
-    # tx, rx1, rx2, rx3 and the return value are of type GPSCoord from gps.py
-    # The ranges are floats in meters
-
+def estimate_target_position(TxCoord, RxCoordArray, rangeArray, numDrones):
+    #start = time.time()
     #Determine size of grid (metres), create grid
-    xRange = 20
-    yRange = 20
+    xRange = 100
+    yRange = 100
     grid = createGrid(xRange, yRange)
-
+    
     #Transmitter drone always centre of grid
     Tx = (xRange/2, yRange/2)
     
-    #Set conditions for localisation testing
-    TxCoord = tx
-
-    Rx1Coord = rx1
-    Rx2Coord = rx2
-    Rx3Coord = rx3
-
-    #targetCoord = GPSCoord(-43.52059, 172.58315)
-
     #Map from GPS to grid locations
-    Rx1 = (calcX(Rx1Coord, TxCoord, Tx), calcY(Rx1Coord, TxCoord, Tx))
-    Rx2 = (calcX(Rx2Coord, TxCoord, Tx), calcY(Rx2Coord, TxCoord, Tx))
-    Rx3 = (calcX(Rx3Coord, TxCoord, Tx), calcY(Rx3Coord, TxCoord, Tx))
-    #target = (calcX(targetCoord, TxCoord, Tx), calcY(targetCoord, TxCoord, Tx))
+    Rx = [None] * numDrones
+    for i in range(0, numDrones-1):
+        Rx[i] = (calcX(RxCoordArray[i], TxCoord, Tx), calcY(RxCoordArray[i], TxCoord, Tx))
     
-    #Place objects
-    # grid = placeObjects(grid, Tx, Rx1, Rx2, Rx3, target)
-
-    #calculate true ranges, in practical test this will be given as the output of the SDR
-    r1 = range1
-    r2 = range2
-    r3 = range3
-
     #Perform Calculations
-    result = bruteForce(grid, Tx, Rx1, Rx2, Rx3, r1, r2, r3)
+    result = bruteForce(grid, Tx, Rx, rangeArray, numDrones)
 
     #convert back to GPS coord
     result = cartesianToLatLong(result, Tx, TxCoord)
-    #print(result)
-    #print(grid)
-    
+    #end = time.time()
+    #print(end - start)    
     return result
 
-def main():
+def root_estimate():
+    start = time.time()
+    
+    #scipy.optimise.root(fun, args = [500,500], x0 = [250,250], method = 'hybr', tol = 1)
+    
+    end = time.time()
+    print(end - start)       
+    return
 
-    #Determine size of grid (metres), create grid
+def main():
+    #Determine size of grid (metres), create grid (using smaller grid here for ease of testing)
     xRange = 20
     yRange = 20
     grid = createGrid(xRange, yRange)
@@ -156,22 +143,20 @@ def main():
     Rx3 = (calcX(Rx3Coord, TxCoord, Tx), calcY(Rx3Coord, TxCoord, Tx))
     target = (calcX(targetCoord, TxCoord, Tx), calcY(targetCoord, TxCoord, Tx))
     
-    #Place objects
     grid = placeObjects(grid, Tx, Rx1, Rx2, Rx3, target)
 
     #calculate true ranges, in practical test this will be given as the output of the SDR
     r1 = findNorm(Tx, target) + findNorm(Rx1, target)
     r2 = findNorm(Tx, target) + findNorm(Rx2, target)
     r3 = findNorm(Tx, target) + findNorm(Rx3, target)
-
+    
+    rangeArray = [r1, r2, r3, None, None]
+    RxCoordArray = [Rx1Coord, Rx2Coord, Rx3Coord, None, None]
     #Perform Calculations
-    result = bruteForce(grid, Tx, Rx1, Rx2, Rx3, r1, r2, r3)
-
-    #convert back to GPS coord
-    result = cartesianToLatLong(result, Tx, TxCoord)
+    result = estimate_target_position(TxCoord, RxCoordArray, rangeArray, 3)
+    
     print(result)
     print(grid)
-
 
 if __name__ == "__main__":
     main()

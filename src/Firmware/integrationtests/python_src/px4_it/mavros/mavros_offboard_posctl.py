@@ -57,6 +57,8 @@ import zmq
 # Will need to change this if communicating between different machines.
 # IP_ADDRESS = "192.168.20.3"
 IP_ADDRESS = "10.42.0.79"
+# IP_ADDRESS = "192.168.1.4"
+
 
 # Must match the one in server_gps.py
 PORT = 5556
@@ -64,7 +66,7 @@ PORT = 5556
 class MavrosOffboardPosctl(MavrosTestCommon):
     """
     Tests flying a path in offboard control by sending position setpoints
-    via MAVROS.
+    via MAVROS.home_position
 
     For the test to be successful it needs to reach all setpoints in a certain time.
 
@@ -130,7 +132,7 @@ class MavrosOffboardPosctl(MavrosTestCommon):
         desired = np.array((lat, lon, alt))
         pos = np.array((self.global_position.latitude,
                         self.global_position.longitude,
-                        tpoint_pub.publish(self.pos)self.global_position.altitude))
+                        self.global_position.altitude))
         return np.linalg.norm(desired - pos) < offset
 
 
@@ -141,7 +143,7 @@ class MavrosOffboardPosctl(MavrosTestCommon):
         self.pos.longitude = lon
         self.pos.altitude = alt
         rospy.loginfo(
-            "attempting to reach position | lat: {0:.5f}, lon: {1:.5f}, alt: {2:.1f} | current position lat: {3:.5f}, lon: {4:.5f}, alt: {5:.1f}".
+            "attempting to reach | lat:{0:.5f}, lon:{1:.5f}, alt:{2:.1f} | current position lat:{3:.5f}, lon:{4:.5f}, alt:{5:.1f}".
             format(lat, lon, alt, self.global_position.latitude,
                    self.global_position.longitude,
                    self.global_position.altitude))
@@ -155,7 +157,7 @@ class MavrosOffboardPosctl(MavrosTestCommon):
         # loop_freq = 2  # Hz
         # rate = rospy.Rate(loop_freq)
         # reached = False
-        # for i in xrange(timeout * loop_freq):
+        # for i in xrange(timtpoint_pub.publish(self.poseout * loop_freq):
         #     if self.is_at_position_global(self.pos.latitude,
         #                            self.pos.longitude,
         #                            self.pos.altitude, self.radius):
@@ -171,7 +173,7 @@ class MavrosOffboardPosctl(MavrosTestCommon):
         #
         # self.assertTrue(reached, (
         #     "took too long to get to position | current position lat: {0:.5f}, lon: {1:.5f}, alt: {2:.5f} | timeout(seconds): {3}".
-        #     format(self.global_position.latitude,
+        #     format(self.glotpoint_pub.publish(self.posbal_position.latitude,
         #            self.global_position.longitude,
         #            self.global_position.altitude, timeout)))
 
@@ -191,9 +193,9 @@ class MavrosOffboardPosctl(MavrosTestCommon):
         else:
             self.recv_attempts = 0
             time_sample, latitude, longitude = message.split(',')
-            x = float(latitude)
-            y = float(longitude)
-            self.reach_position_global(x, y, altitude, timeout)
+            lat = float(latitude)
+            lon = float(longitude)
+            self.reach_position_global(lat, lon, altitude, timeout)
 
     #
     # Run method
@@ -231,11 +233,10 @@ class MavrosOffboardPosctl(MavrosTestCommon):
 
 
 if __name__ == '__main__':
-    import rostest
+    # import rostest
     rospy.init_node('test_node', anonymous=True)
 
     controller = MavrosOffboardPosctl()
-    # controller.setUp()
     controller.test_posctl()
     controller.tearDown()
 

@@ -1,0 +1,1 @@
+cmd='/usr/bin/cmake;-DCMAKE_INSTALL_PREFIX=/usr/local;-GNinja;/home/atofi2/drone_lab/Firmware/test/mavsdk_tests'

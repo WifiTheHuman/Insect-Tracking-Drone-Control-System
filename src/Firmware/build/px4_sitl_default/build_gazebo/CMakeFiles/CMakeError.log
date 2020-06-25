@@ -1,0 +1,120 @@
+Determining if the pthread_create exist failed with the following output:
+Change Dir: /home/atofi2/drone_lab/Firmware/build/px4_sitl_default/build_gazebo/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/ninja" "cmTC_2f194"
+[1/2] Building C object CMakeFiles/cmTC_2f194.dir/CheckSymbolExists.c.o
+[2/2] Linking C executable cmTC_2f194
+FAILED: : && /usr/bin/cc     CMakeFiles/cmTC_2f194.dir/CheckSymbolExists.c.o  -o cmTC_2f194   && :
+CMakeFiles/cmTC_2f194.dir/CheckSymbolExists.c.o: In function `main':
+CheckSymbolExists.c:(.text+0x16): undefined reference to `pthread_create'
+collect2: error: ld returned 1 exit status
+ninja: build stopped: subcommand failed.
+
+File /home/atofi2/drone_lab/Firmware/build/px4_sitl_default/build_gazebo/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <pthread.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef pthread_create
+  return ((int*)(&pthread_create))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+
+Determining if the function pthread_create exists in the pthreads failed with the following output:
+Change Dir: /home/atofi2/drone_lab/Firmware/build/px4_sitl_default/build_gazebo/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/ninja" "cmTC_903be"
+[1/2] Building C object CMakeFiles/cmTC_903be.dir/CheckFunctionExists.c.o
+[2/2] Linking C executable cmTC_903be
+FAILED: : && /usr/bin/cc  -DCHECK_FUNCTION_EXISTS=pthread_create   CMakeFiles/cmTC_903be.dir/CheckFunctionExists.c.o  -o cmTC_903be  -lpthreads && :
+/usr/bin/ld: cannot find -lpthreads
+collect2: error: ld returned 1 exit status
+ninja: build stopped: subcommand failed.
+
+
+Determining if the Q_WS_WIN exist failed with the following output:
+Change Dir: /home/atofi2/drone_lab/Firmware/build/px4_sitl_default/build_gazebo/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/ninja" "cmTC_f2dff"
+[1/2] Building CXX object CMakeFiles/cmTC_f2dff.dir/CheckSymbolExists.cxx.o
+FAILED: /usr/bin/c++    -I/usr/include/qt4  -o CMakeFiles/cmTC_f2dff.dir/CheckSymbolExists.cxx.o -c CheckSymbolExists.cxx
+CheckSymbolExists.cxx: In function ‘int main(int, char**)’:
+CheckSymbolExists.cxx:8:19: error: ‘Q_WS_WIN’ was not declared in this scope
+   return ((int*)(&Q_WS_WIN))[argc];
+                   ^
+ninja: build stopped: subcommand failed.
+
+File /home/atofi2/drone_lab/Firmware/build/px4_sitl_default/build_gazebo/CMakeFiles/CMakeTmp/CheckSymbolExists.cxx:
+/* */
+#include <QtCore/qglobal.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef Q_WS_WIN
+  return ((int*)(&Q_WS_WIN))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+
+Determining if the Q_WS_QWS exist failed with the following output:
+Change Dir: /home/atofi2/drone_lab/Firmware/build/px4_sitl_default/build_gazebo/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/ninja" "cmTC_82d65"
+[1/2] Building CXX object CMakeFiles/cmTC_82d65.dir/CheckSymbolExists.cxx.o
+FAILED: /usr/bin/c++    -I/usr/include/qt4  -o CMakeFiles/cmTC_82d65.dir/CheckSymbolExists.cxx.o -c CheckSymbolExists.cxx
+CheckSymbolExists.cxx: In function ‘int main(int, char**)’:
+CheckSymbolExists.cxx:8:19: error: ‘Q_WS_QWS’ was not declared in this scope
+   return ((int*)(&Q_WS_QWS))[argc];
+                   ^
+ninja: build stopped: subcommand failed.
+
+File /home/atofi2/drone_lab/Firmware/build/px4_sitl_default/build_gazebo/CMakeFiles/CMakeTmp/CheckSymbolExists.cxx:
+/* */
+#include <QtCore/qglobal.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef Q_WS_QWS
+  return ((int*)(&Q_WS_QWS))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+
+Determining if the Q_WS_MAC exist failed with the following output:
+Change Dir: /home/atofi2/drone_lab/Firmware/build/px4_sitl_default/build_gazebo/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/ninja" "cmTC_900db"
+[1/2] Building CXX object CMakeFiles/cmTC_900db.dir/CheckSymbolExists.cxx.o
+FAILED: /usr/bin/c++    -I/usr/include/qt4  -o CMakeFiles/cmTC_900db.dir/CheckSymbolExists.cxx.o -c CheckSymbolExists.cxx
+CheckSymbolExists.cxx: In function ‘int main(int, char**)’:
+CheckSymbolExists.cxx:8:19: error: ‘Q_WS_MAC’ was not declared in this scope
+   return ((int*)(&Q_WS_MAC))[argc];
+                   ^
+ninja: build stopped: subcommand failed.
+
+File /home/atofi2/drone_lab/Firmware/build/px4_sitl_default/build_gazebo/CMakeFiles/CMakeTmp/CheckSymbolExists.cxx:
+/* */
+#include <QtCore/qglobal.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef Q_WS_MAC
+  return ((int*)(&Q_WS_MAC))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+

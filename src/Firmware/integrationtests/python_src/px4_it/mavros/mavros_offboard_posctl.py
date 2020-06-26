@@ -44,7 +44,8 @@ PKG = 'px4'
 import rospy
 import math
 import numpy as np
-from mavros_msgs.msg import GlobalPositionTarget
+# from mavros_msgs.msg import GlobalPositionTarget
+from geographic_msgs.msg import GeoPoseStamped
 from geometry_msgs.msg import PoseStamped, Quaternion
 from mavros_test_common import MavrosTestCommon
 from pymavlink import mavutil
@@ -56,8 +57,9 @@ import zmq
 
 # Will need to change this if communicating between different machines.
 # IP_ADDRESS = "192.168.20.3"
-IP_ADDRESS = "10.42.0.79"
+# IP_ADDRESS = "10.42.0.79"
 # IP_ADDRESS = "192.168.1.4"
+IP_ADDRESS = "localhost"
 
 
 # Must match the one in server_gps.py
@@ -89,13 +91,14 @@ class MavrosOffboardPosctl(MavrosTestCommon):
 
 
         # self.pos = PoseStamped()
-        self.pos = GlobalPositionTarget()
-        self.pos.coordinate_frame = 5
+        # self.pos = GlobalPositionTarget()\
+        self.pos = GeoPoseStamped()
+        # self.pos.coordinate_frame = 5
         # slef.pos.type_mask =
         self.radius = 0.001
 
         self.pos_setpoint_pub = rospy.Publisher(
-            'mavros/setpoint_position/global', GlobalPositionTarget, queue_size=1)
+            'mavros/setpoint_position/global', GeoPoseStamped, queue_size=1)
 
         # send setpoints in seperate thread to better prevent failsafe
         self.pos_thread = Thread(target=self.send_pos, args=())
@@ -139,9 +142,9 @@ class MavrosOffboardPosctl(MavrosTestCommon):
     def reach_position_global(self, lat, lon, alt, timeout):
         """timeout(int): seconds"""
         # set a position setpoint
-        self.pos.latitude = lat
-        self.pos.longitude = lon
-        self.pos.altitude = alt
+        self.pos.pose.position.latitude = lat
+        self.pos.pose.position.longitude = lon
+        self.pos.pose.position.altitude = alt
         rospy.loginfo(
             "attempting to reach | lat:{0:.5f}, lon:{1:.5f}, alt:{2:.1f} | current position lat:{3:.5f}, lon:{4:.5f}, alt:{5:.1f}".
             format(lat, lon, alt, self.global_position.latitude,
@@ -151,7 +154,9 @@ class MavrosOffboardPosctl(MavrosTestCommon):
         # For demo purposes we will lock yaw/heading to north.
         yaw_degrees = 0  # North
         yaw = math.radians(yaw_degrees)
-        self.pos.yaw = yaw
+        # self.pos.yaw = yaw
+        quaternion = quaternion_from_euler(0, 0, yaw)
+        self.pos.pose.orientation = Quaternion(*quaternion)
 
         # does it reach the position in 'timeout' seconds?
         # loop_freq = 2  # Hz

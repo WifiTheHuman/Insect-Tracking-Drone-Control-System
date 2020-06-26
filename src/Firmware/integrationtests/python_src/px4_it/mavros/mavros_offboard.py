@@ -10,7 +10,7 @@ from mavros_msgs.srv import *
 import zmq
 
 # Will need to change this if communicating between different machines.
-IP_ADDRESS = "192.168.20.3"
+IP_ADDRESS = "localhost"
 
 # Must match the one in server_gps.py
 PORT = 5556

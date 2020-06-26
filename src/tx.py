@@ -194,16 +194,11 @@ class TransmitterUAV:
 
     def perform_multilateration(self):
         """ Returns the target position estimated by the multilateration module.
-
-        TODO: For now, only use readings from the first 3 Rxs for multilateration.
-        Remove this once multilateration works with 4 Rxs.
         """
-        num_rxs = 3
-        rx_coords = self.updates.get_rx_positions()[:num_rxs]
-        ranges = self.updates.get_ranges()[:num_rxs]
-
+        rx_positions = self.updates.get_rx_positions()
+        ranges = self.updates.get_ranges()
         return multilateration.estimate_target_position(
-            self.tx_coords, *rx_coords, *ranges)
+            self.tx_coords, rx_positions, ranges, NUM_RXS)
         
     def swarming_checks(self):
         """ Returns the desired centre position of the formation. 

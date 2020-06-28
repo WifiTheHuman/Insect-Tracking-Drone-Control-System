@@ -217,40 +217,16 @@ class TransmitterUAV:
             target_coords = previous_target_coords
             print("ERROR: BAD TARGET GPS COORD")
             self.target_positions[-1] = previous_target_coords # This is ugly
-            # TODO: for consecutinve bad readings, stop the drones
+            # TODO: for consecutive bad readings, stop the drones
         
-        # Estimate (mean) the centre of the formation   
-        centres = swarming_logic.centres_from_drones(drone_positions)
-        est_centre, error = swarming_logic.mean_centre(centres)        
-        
-        # Check the drone formation and update the fsm state accordingly
-        if not(swarming_logic.critical_formation(drone_positions)):
-            # Set state to 2 (stop)
-            self.swarming_state = 2
-            print("ERROR: CRITICAL - STOP THE DRONES")
-        elif not(swarming_logic.check_formation(drone_positions, est_centre, error)):
-           # Set state to 1 (reset)
-            self.swarming_state = 1
-            print("RESET FORMATION")
-        elif self.swarming_state == 1 and error >= 1:
-            # Hysteresis; has greater error requirements for exiting reset state
-            print("RESET FORMATION")
-        else:
-            # if no formation errors, set state to 0 (normal)
-            self.swarming_state = 0
-            
-        
-        # Ouput destination based upon fsm state
-        if self.swarming_state == 0:
-            output_dest = target_coords
-        elif self.swarming_state == 1:
-            # desination average centre of the drones to reset formation 
-            output_dest = est_centre            
-        elif self.swarming_state == 2:
-            # If formation is critical stop the drones
-            # TODO: Set drone mode to hold (pixhawk)            
-            output_dest = GPSCoord(-1, -1)            
-        return output_dest  
+        # Update swarming formation fsm state
+        self.swarming_state, est_centre = swarming_logic.update_fsm(
+                                           drone_positions, self.swarming_state)
+        # Update drones next destination from the fsm state
+        output_dest = swarming_logic.destination(self.swarming_state, 
+                                                 target_coords, est_centre)
+        return output_dest
+          
 
     def plot_positions(self):
         """ Plot the current positions of the Tx and the Rxs, and the actual

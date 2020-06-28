@@ -49,7 +49,7 @@ def check_gps(gps, prev_gps, max_diff = 10):
 
 def update_loc(target, drone_num, drone_pos):
     """ returns the desired GPSCoord offset of the drone for formation, 
-    given the target GPSCoord, and drone_num. If target == None, showing a
+    given the target GPSCoord, and drone_num. If target is -1, showing a
     swarming error, returns the drones current location """
     if target.lat == -1 or target.long == -1:
         pos = drone_pos
@@ -71,6 +71,7 @@ def update_loc(target, drone_num, drone_pos):
             pos = pos.add_y_offset(-5)
     return pos
 
+
 def centres_from_drones(drones):
     """ returns a list of the expected GPSCoords centre of the formation, 
     from the list of drone GPSCoords """
@@ -90,6 +91,7 @@ def centres_from_drones(drones):
         centres.append(drones[4].add_x_offset(-5))
         centres[4] = centres[4].add_y_offset(5)
     return centres
+
 
 def mean_centre(centres):
     """ Returns the mean average GPSCoord of the centres list, and returns the 
@@ -122,17 +124,8 @@ def check_formation(drones, est_centre, error):
     if error > 3:
         print("Warning: Error in centre estimate of {:.2f} m".format(error))
         formation = False
-        
-    # this section is useless as already done by checking error?
-    #else:
-        ## Check drone positions with respect to the estimated centre
-        #for i in range(len(drones)):
-            #desired_loc = update_loc(est_centre, i) # finds the the location the drone should be relative to the centre
-            #if desired_loc.distance(drones[i]) > 2:
-                #formation = False
-                #print("Drone {} out of formation".format(i))
-    
     return formation
+
 
 def critical_formation(drones):
     """ Checks positions of drones relative to each other, to detect if
@@ -173,6 +166,42 @@ def critical_formation(drones):
     
     return formation
 
-def hysteresis(drone_loc, target_loc):
-    None
+
+def update_fsm(drone_positions, swarming_state):
+    """ Update the swarming fsm for the drone formation given drone positions
+    and current state. Sates are 0 (normal), 1 (reset formation), 2 (stop) """
+    # Estimate (mean) the centre of the formation   
+    centres = centres_from_drones(drone_positions)
+    est_centre, error = mean_centre(centres)        
+    
+    # Check the drone formation and update the fsm state accordingly
+    if not(critical_formation(drone_positions)):
+        # Set state to 2 (stop) if there is a critical (unrecoverable) formation
+        swarming_state = 2
+        print("ERROR: CRITICAL - STOP THE DRONES")
+    elif not(check_formation(drone_positions, est_centre, error)):
+       # Set state to 1 (reset) if drones are out of formation (recoverable)
+        swarming_state = 1
+        print("RESET FORMATION")
+    elif swarming_state == 1 and error >= 1:
+        # Do not change from reset (1) to normal (0) until all drones are 
+        # within 1m of their desired position
+        print("RESET FORMATION")
+    else:
+        # if no formation errors, set state to 0 (normal)
+        swarming_state = 0
+    return swarming_state, est_centre
+
+def destination(swarming_state, target_coords, est_centre):
+    """ Ouput destination depending fsm state """
+    if swarming_state == 0:
+        output_dest = target_coords
+    elif swarming_state == 1:
+        # desination average centre of the drones to reset formation 
+        output_dest = est_centre            
+    elif swarming_state == 2:
+        # If formation is critical stop the drones
+        # TODO: Set drone mode to hold (pixhawk)            
+        output_dest = GPSCoord(-1, -1)            
+    return output_dest    
     

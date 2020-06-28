@@ -163,6 +163,9 @@ class TransmitterUAV:
         self.should_plot = should_plot
         if self.should_plot:
             plt.axis([MIN_LONG, MAX_LONG, MIN_LAT, MAX_LAT])
+        
+        # State machine for drone swarming 0 = normal, 1 = reset, 2 = stop
+        self.swarming_state = 0
 
     def receive_updates(self, timeout_time):
         """ Repeatedly receive and store updates from the Rxs, returning once
@@ -208,32 +211,45 @@ class TransmitterUAV:
         target_coords = self.target_positions[-1]
         previous_target_coords = self.target_positions[-2]
         
-        # Estimate (mean) the centre of the formation   
-        centres = swarming_logic.centres_from_drones(drone_positions)
-        est_centre, error = swarming_logic.mean_centre(centres)
-        
-        # Check the target position is valid 
+        # Check if the target position is valid 
         if not(swarming_logic.check_gps(target_coords, previous_target_coords)):
             # Replace target with previous_target if target coord is bad
             target_coords = previous_target_coords
             print("ERROR: BAD TARGET GPS COORD")
             self.target_positions[-1] = previous_target_coords # This is ugly
-            # TODO: for consecutinve bad readings, stop the drones / move back home
+            # TODO: for consecutinve bad readings, stop the drones
         
-        # Check the drone formation
+        # Estimate (mean) the centre of the formation   
+        centres = swarming_logic.centres_from_drones(drone_positions)
+        est_centre, error = swarming_logic.mean_centre(centres)        
+        
+        # Check the drone formation and update the fsm state accordingly
         if not(swarming_logic.critical_formation(drone_positions)):
-            # If formation is critical stop the drones
-            #TODO: Stop the drones moving if critical
-            output_dest = est_centre # change this in future
+            # Set state to 2 (stop)
+            self.swarming_state = 2
             print("ERROR: CRITICAL - STOP THE DRONES")
         elif not(swarming_logic.check_formation(drone_positions, est_centre, error)):
-            # Output the average centre of the drones as the destination to reset the formation        
-            output_dest = GPSCoord(-1, -1)
+           # Set state to 1 (reset)
+            self.swarming_state = 1
+            print("RESET FORMATION")
+        elif self.swarming_state == 1 and error >= 1:
+            # Hysteresis; has greater error requirements for exiting reset state
             print("RESET FORMATION")
         else:
-            # Output target position as the destination
-            output_dest = target_coords
+            # if no formation errors, set state to 0 (normal)
+            self.swarming_state = 0
+            
         
+        # Ouput destination based upon fsm state
+        if self.swarming_state == 0:
+            output_dest = target_coords
+        elif self.swarming_state == 1:
+            # desination average centre of the drones to reset formation 
+            output_dest = est_centre            
+        elif self.swarming_state == 2:
+            # If formation is critical stop the drones
+            # TODO: Set drone mode to hold (pixhawk)            
+            output_dest = GPSCoord(-1, -1)            
         return output_dest  
 
     def plot_positions(self):

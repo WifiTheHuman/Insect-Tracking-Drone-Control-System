@@ -228,12 +228,11 @@ class TransmitterUAV:
             print("ERROR: CRITICAL - STOP THE DRONES")
         elif not(swarming_logic.check_formation(drone_positions, est_centre, error)):
             # Output the average centre of the drones as the destination to reset the formation        
-            output_dest = est_centre
+            output_dest = GPSCoord(-1, -1)
             print("RESET FORMATION")
         else:
             # Output target position as the destination
-            print("UPDATE TARGET")
-            output_dest = target_coords 
+            output_dest = target_coords
         
         return output_dest  
 
@@ -283,7 +282,7 @@ class TransmitterUAV:
 
             # Update the Tx's own position.
             self.tx_coords = swarming_logic.update_loc(desired_centre_position,
-                                                       TX_ID)
+                                                       TX_ID, self.tx_coords)
 
             # Plot the current Tx, Rx and actual target positions if needed.
             if self.should_plot:

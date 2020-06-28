@@ -47,23 +47,28 @@ def check_gps(gps, prev_gps, max_diff = 10):
     return gps_check
         
 
-def update_loc(target, drone_num):
-    """ returns the desired GPSCoord of the drone, from the target GPSCoord """
-    if drone_num == 0:
-        pos = target.add_x_offset(0)
-        pos = pos.add_y_offset(0)
-    elif drone_num == 1:
-        pos = target.add_x_offset(-5)
-        pos = pos.add_y_offset(5)
-    elif drone_num == 2:
-        pos = target.add_x_offset(5)
-        pos = pos.add_y_offset(5)
-    elif drone_num == 3:
-        pos = target.add_x_offset(-5)
-        pos = pos.add_y_offset(-5)
-    elif drone_num == 4:
-        pos = target.add_x_offset(5)
-        pos = pos.add_y_offset(-5)
+def update_loc(target, drone_num, drone_pos):
+    """ returns the desired GPSCoord offset of the drone for formation, 
+    given the target GPSCoord, and drone_num. If target == None, showing a
+    swarming error, returns the drones current location """
+    if target.lat == -1 or target.long == -1:
+        pos = drone_pos
+    else:
+        if drone_num == 0:
+            pos = target.add_x_offset(0)
+            pos = pos.add_y_offset(0)
+        elif drone_num == 1:
+            pos = target.add_x_offset(-5)
+            pos = pos.add_y_offset(5)
+        elif drone_num == 2:
+            pos = target.add_x_offset(5)
+            pos = pos.add_y_offset(5)
+        elif drone_num == 3:
+            pos = target.add_x_offset(-5)
+            pos = pos.add_y_offset(-5)
+        elif drone_num == 4:
+            pos = target.add_x_offset(5)
+            pos = pos.add_y_offset(-5)
     return pos
 
 def centres_from_drones(drones):
@@ -122,7 +127,7 @@ def check_formation(drones, est_centre, error):
     #else:
         ## Check drone positions with respect to the estimated centre
         #for i in range(len(drones)):
-            #desired_loc = update_loc(est_centre, i)
+            #desired_loc = update_loc(est_centre, i) # finds the the location the drone should be relative to the centre
             #if desired_loc.distance(drones[i]) > 2:
                 #formation = False
                 #print("Drone {} out of formation".format(i))
@@ -135,16 +140,15 @@ def critical_formation(drones):
     formation = True
     
     # All drones must have at least 3 m between each other   
-    for i in range(len(drones)):
+    for i in range(len(drones) - 1):
         drone1 = drones[i]
-        if drone1 != '':
-            for n in range(len(drones) - i - 1):
-                drone2 = drones[n + i + 1]
-                if drone2 != '':
-                    if drone1.distance(drone2) < 3:
-                        print("ERROR: CRITICAL FORMATION")
-                        formation = False
-        
+        for n in range(len(drones) - i - 1):
+            drone2 = drones[n + i + 1]
+            if drone1.distance(drone2) < 3:
+                print("ERROR: CRITICAL FORMATION")
+                formation = False
+    
+    # Check that all drones are the right direction relative to each other
     # Drone 0 is known as checked by all others
     # Drone 1 left (lower long) of 0, 2, 4, and above (higher lat) 0, 3, 4
     if not(drones[1].long < drones[0].long and drones[1].long < drones[2].long and drones[1].long < drones[4].long):
@@ -168,3 +172,7 @@ def critical_formation(drones):
         formation = False 
     
     return formation
+
+def hysteresis(drone_loc, target_loc):
+    None
+    

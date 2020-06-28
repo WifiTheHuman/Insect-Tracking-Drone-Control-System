@@ -111,7 +111,7 @@ class ReceiverUAV:
 
         # Calculate the desired location for this Rx based on the swarming logic.
         desired_location = swarming_logic.update_loc(update.target_coords,
-                                                     self.rx_id)
+                                                     self.rx_id, self.rx_coords)
         print("Rx {} desired location: {}".format(self.rx_id,
                                                   desired_location))
 

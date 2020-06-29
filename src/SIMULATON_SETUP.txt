@@ -1,6 +1,6 @@
 To setup the simulation environment, execute the following commands from the "Firmware" directory.
 
-source Tools/setup_gazebo.bash $(pwd) $(pwd)/build/posix_sitl_default
+source Tools/setup_gazebo.bash $(pwd) $(pwd)/build/px4_sitl_default
 export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd):$(pwd)/Tools/sitl_gazebo
 
 To launch the simulation, execute the following commands from the "Firmware" directory.

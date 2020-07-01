@@ -8,13 +8,12 @@ import multilaterationv2
 import swarming_logic
 from gps import GPSCoord
 from packets import RxUpdate, TxUpdate
+from mavros_offboard_posctl import MavrosOffboardPosctl
 
 # Must match the port numbers in rx.py
 TX_STARTUP_PORT = 5554
 TX_RECEIVE_PORT = 5555
 TX_SEND_PORT = 5556
-
-MAVROS_PORT = 5557
 
 # This must match the value in rx.py, and be compatible with the swarming logic
 # and the multilateration.
@@ -136,7 +135,7 @@ class UpdateStore:
 
 
 class TransmitterUAV:
-    def __init__(self, context, should_plot, should_sim):
+    def __init__(self, context, should_plot, mavros_controller=None):
         # PULL socket for receiving updates from the Rxs.
         self.receiver = context.socket(zmq.PULL)
         self.receiver.bind("tcp://*:{}".format(TX_RECEIVE_PORT))
@@ -144,9 +143,6 @@ class TransmitterUAV:
         # PUB socket for sending target position estimates to the Rxs.
         self.sender = context.socket(zmq.PUB)
         self.sender.bind("tcp://*:{}".format(TX_SEND_PORT))
-
-        self.mavros_socket = context.socket(zmq.PUB)
-        self.mavros_socket.bind("tcp://*:{}".format(MAVROS_PORT))
 
         # Current position of the Tx, initialised to its hard-coded start position,
         # then updated based on the desired location output by the swaming logic.
@@ -169,11 +165,16 @@ class TransmitterUAV:
         if self.should_plot:
             plt.axis([MIN_LONG, MAX_LONG, MIN_LAT, MAX_LAT])
 
-        # Setup the MAVROS control if the simulation option was given.
-        self.should_sim = should_sim
+        # Check if the simulation option was given.
+        self.mavros_controller = mavros_controller
+        self.sim_running = self.mavros_controller is not None
 
         # State machine for drone swarming 0 = normal, 1 = reset, 2 = stop
         self.swarming_state = 0
+
+    def tear_down(self):
+        if self.sim_running:
+            self.mavros_controller.tearDown()
 
     def receive_updates(self, timeout_time):
         """ Repeatedly receive and store updates from the Rxs, returning once
@@ -210,8 +211,7 @@ class TransmitterUAV:
         ranges = self.updates.get_ranges()
 
         # TODO: remove once multilateration is fixed.
-        assert (NUM_RXS == 4,
-                "Current multilateration version assumes 4 Rx's.")
+        assert NUM_RXS == 4, "Current multilateration version assumes 4 Rx's."
         return multilaterationv2.estimate_target_position(
             self.tx_coords, *rx_positions, *ranges)
 
@@ -292,10 +292,10 @@ class TransmitterUAV:
             if self.should_plot:
                 self.plot_positions()
 
-            # Send the new Tx position to the simulation if needed.
-            if self.should_sim:
-                message = "{},{:.5f},{:.5f}".format("", self.tx_coords.lat, self.tx_coords.long)
-                self.mavros_socket.send(message.encode('utf-8'))
+            # Send the Tx position setpoint for the simulation if it's running.
+            if self.sim_running:
+                self.mavros_controller.reach_position(self.tx_coords.lat,
+                                                      self.tx_coords.long)
 
             # Send the desired centre position and the Tx position to the Rxs.
             update = TxUpdate(desired_centre_position, self.tx_coords)
@@ -342,19 +342,36 @@ def main():
         action='store_true',
         help='plots the drone and target positions on a graph during execution'
     )
-    parser.add_argument('-s',
-                        '--sim',
-                        action='store_true',
-                        help='simulates the Tx drone in Gazebo (requires Gazebo to be running)')
+    parser.add_argument(
+        '-s',
+        '--sim',
+        action='store_true',
+        help='simulates the Tx drone in Gazebo (requires Gazebo to be running)'
+    )
     args = parser.parse_args()
 
-    context = zmq.Context()
+    # When running simulation, perform setup first so the drone is ready to fly.
+    if args.sim:
+        mavros_controller = MavrosOffboardPosctl()
+        mavros_controller.setUp()
 
     # Wait until all Rxs have sent a ready message.
+    context = zmq.Context()
     wait_for_rxs(context)
 
-    tx = TransmitterUAV(context, args.plot, args.sim)
-    tx.run()
+    tx = TransmitterUAV(context, args.plot, mavros_controller)
+
+    try:
+        tx.run()
+    except KeyboardInterrupt:
+        # TODO: figure out why Ctrl-C doesn't work when running tx.py directly.
+        print("Interrupted.")
+    except Exception as e:
+        print(e)
+    finally:
+        print("Performing tear down...")
+        tx.tear_down()
+        sys.exit(0)
 
 
 if __name__ == "__main__":
@@ -362,7 +379,4 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("Interrupted. Exiting...")
-        sys.exit(0)
-    except Exception as e:
-        print(e)
         sys.exit(0)

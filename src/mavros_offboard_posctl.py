@@ -39,55 +39,29 @@
 # dependencies such as pymavlink don't play well with Python3 yet.
 from __future__ import division
 
-PKG = 'px4'
-
 import rospy
 import math
-import numpy as np
 from geographic_msgs.msg import GeoPoseStamped
-from geometry_msgs.msg import PoseStamped, Quaternion
+from geometry_msgs.msg import Quaternion
 from mavros_common import MavrosTestCommon
 from pymavlink import mavutil
-from six.moves import xrange
 from std_msgs.msg import Header
 from threading import Thread
-from tf.transformations import quaternion_from_euler
-import zmq
+# from tf.transformations import quaternion_from_euler
 
-# Will need to change this if communicating between different machines.
-# IP_ADDRESS = "192.168.20.3"
-# IP_ADDRESS = "10.42.0.79"
-# IP_ADDRESS = "192.168.1.4"
-IP_ADDRESS = "localhost"
 
-# Must match the one in server_gps.py / server_data.py
-PORT = 5557
+DEFAULT_ALTITUDE = 20
+
 
 class MavrosOffboardPosctl(MavrosTestCommon):
-    """
-    Tests flying a path in offboard control by sending position setpoints
-    via MAVROS.
-
-    For the test to be successful it needs to reach all setpoints in a certain time.
-
-    FIXME: add flight path assertion (needs transformation from ROS frame to NED)
-    """
+    """ Controls a drone in Gazebo by sending position setpoints via MAVROS. """
+    def __init__(self):
+        rospy.init_node('test_node', anonymous=True)
 
     def setUp(self):
         super(MavrosOffboardPosctl, self).setUp()
 
-        # Socket receive readings from the server.
-        context = zmq.Context()
-        self.socket = context.socket(zmq.SUB, )
-        rospy.loginfo("connecting to server")
-        self.socket.connect("tcp://{}:{}".format(IP_ADDRESS, PORT))
-        self.socket.setsockopt(zmq.SUBSCRIBE, b"")
-        self.recv_attempts = 0
-
-        # self.pos = PoseStamped()
         self.pos = GeoPoseStamped()
-        self.radius = 1
-
         self.pos_setpoint_pub = rospy.Publisher(
             'mavros/setpoint_position/global', GeoPoseStamped, queue_size=1)
 
@@ -96,13 +70,22 @@ class MavrosOffboardPosctl(MavrosTestCommon):
         self.pos_thread.daemon = True
         self.pos_thread.start()
 
+        self.wait_for_topics(60)
+        self.wait_for_landed_state(mavutil.mavlink.MAV_LANDED_STATE_ON_GROUND, 10, -1)
+        self.set_mode("OFFBOARD", 5)
+        self.set_arm(True, 5)
+        rospy.loginfo("setup complete")
+
     def tearDown(self):
+        """ Teardown, including landing and disarming the drone. """
+        self.set_mode("AUTO.LAND", 5)
+        self.wait_for_landed_state(mavutil.mavlink.MAV_LANDED_STATE_ON_GROUND, 45, 0)
+        self.set_arm(False, 5)
+
         super(MavrosOffboardPosctl, self).tearDown()
 
-    #
-    # Helper methods
-    #
     def send_pos(self):
+        """ Runs in a separate thread, publishing current position at a rate of 10 Hz. """
         rate = rospy.Rate(10)  # Hz
         self.pos.header = Header()
         self.pos.header.frame_id = "base_footprint"
@@ -115,124 +98,39 @@ class MavrosOffboardPosctl(MavrosTestCommon):
             except rospy.ROSInterruptException:
                 pass
 
-    def is_at_position(self, x, y, z, offset):
-        """offset: meters"""
-        rospy.logdebug(
-            "current position | x:{0:.2f}, y:{1:.2f}, z:{2:.2f}".format(
-                self.local_position.pose.position.x, self.local_position.pose.
-                position.y, self.local_position.pose.position.z))
-
-        desired = np.array((x, y, z))
-        pos = np.array((self.local_position.pose.position.x,
-                        self.local_position.pose.position.y,
-                        self.local_position.pose.position.z))
-        return np.linalg.norm(desired - pos) < offset
-
-    def reach_position(self, x, y, z, timeout):
-        """timeout(int): seconds"""
-        # set a position setpoint
+    def reach_position(self, x, y, z=DEFAULT_ALTITUDE):
+        """ Set the position setpoint to the given values. """
         self.pos.pose.position.latitude = x
         self.pos.pose.position.longitude = y
         self.pos.pose.position.altitude = z
         rospy.loginfo(
-            "attempting to reach position | x: {0}, y: {1}, z: {2} | current position x: {3:.2f}, y: {4:.2f}, z: {5:.2f}".
+            "attempting to reach position x: {0}, y: {1}, z: {2} | current position x: {3:.2f}, y: {4:.2f}, z: {5:.2f}".
             format(x, y, z, self.global_position.latitude,
                    self.global_position.longitude,
                    self.global_position.altitude))
 
+        # Remove tf dependency for now to allow running with Python3
+        # (this is equivalent to the below)
+        self.pos.pose.orientation = Quaternion(0, 0, 0, 1)
+
         # For demo purposes we will lock yaw/heading to north.
-        yaw_degrees = 0  # North
-        yaw = math.radians(yaw_degrees)
-        quaternion = quaternion_from_euler(0, 0, yaw)
-        self.pos.pose.orientation = Quaternion(*quaternion)
+        # yaw_degrees = 0  # North
+        # yaw = math.radians(yaw_degrees)
+        # quaternion = quaternion_from_euler(0, 0, yaw)
+        # self.pos.pose.orientation = Quaternion(*quaternion)
 
-        # does it reach the position in 'timeout' seconds?
-        # loop_freq = 2  # Hz
-        # rate = rospy.Rate(loop_freq)
-        # reached = False
-        # for i in xrange(timeout * loop_freq):
-        #     if self.is_at_position(self.pos.pose.position.latitude,
-        #                            self.pos.pose.position.longitude,
-        #                            self.pos.pose.position.altitude, self.radius):
-        #         rospy.loginfo("position reached | seconds: {0} of {1}".format(
-        #             i / loop_freq, timeout))
-        #         reached = True
-        #         break
-        #
-        #     try:
-        #         rate.sleep()
-        #     except rospy.ROSException as e:
-        #         self.fail(e)
-        #
-        # self.assertTrue(reached, (
-        #     "took too long to get to position | current position x: {0:.2f}, y: {1:.2f}, z: {2:.2f} | timeout(seconds): {3}".
-        #     format(self.global_position.latitude,
-        #            self.global_position.longitude,
-        #            self.global_position.altitude, timeout)))
-
-    def server_disconnected(self, max_attempts):
-        """Returns true if failed recieve attempts is above threshold"""
-        if self.recv_attempts != 0 and self.recv_attempts % 10 == 0:
-            rospy.loginfo("{} failed attempts to recieve setpoint".format(self.recv_attempts))
-        return self.recv_attempts > max_attempts
-
-    def update_setpoint(self, altitude, timeout):
-        """Update setpoint based on data from server"""
-        try:
-            message = self.socket.recv(flags=zmq.NOBLOCK).decode('utf-8')
-        except zmq.ZMQError:
-            self.recv_attempts += 1
-        else:
-            self.recv_attempts = 0
-            time_sample, latitude, longitude = message.split(',')
-            lat = float(latitude)
-            lon = float(longitude)
-            self.reach_position(lat, lon, altitude, timeout)
-
-    #
-    # Test method
-    #
-    def test_posctl(self):
-        """Test offboard position control"""
-
-        # make sure the simulation is ready to start the mission
-        self.wait_for_topics(60)
-        self.wait_for_landed_state(mavutil.mavlink.MAV_LANDED_STATE_ON_GROUND,
-                                   10, -1)
-
-        self.log_topic_vars()
-        self.set_mode("OFFBOARD", 5)
-        self.set_arm(True, 5)
-
-        rospy.loginfo("run mission")
-        altitude = 20
-        timeout = 30 # seconds
-        max_attempts = 100
-        rate = rospy.Rate(5)
-
-        while not self.server_disconnected(max_attempts):
-            self.update_setpoint(altitude, timeout)
-            try:
-                rate.sleep()
-            except rospy.ROSException as e:
-                self.fail(e)
-
-        if self.server_disconnected(max_attempts):
-            rospy.loginfo("maximum number of failed attempts to recieve setpoint ({}) reached".format(self.recv_attempts))
-
-        self.set_mode("AUTO.LAND", 5)
-        self.wait_for_landed_state(mavutil.mavlink.MAV_LANDED_STATE_ON_GROUND,
-                                   45, 0)
-        self.set_arm(False, 5)
 
 
 if __name__ == '__main__':
-    rospy.init_node('test_node', anonymous=True)
+    # Simple test to setup, fly in a line for 10 s, then land.
+    # Similar to the way tx.py uses this class.
 
     controller = MavrosOffboardPosctl()
     controller.setUp()
-    controller.test_posctl()
-    controller.tearDown()
 
-    # rostest.rosrun(PKG, 'mavros_offboard_posctl_test',
-    #                MavrosOffboardPosctlTest)
+    rate = rospy.Rate(1)
+    for i in range(10):
+        controller.reach_position(-43.52062 + i * 0.00001, 172.58325 + i * 0.00001)
+        rate.sleep()
+
+    controller.tearDown()

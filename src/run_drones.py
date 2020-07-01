@@ -55,6 +55,7 @@ def main():
     except KeyboardInterrupt:
         print("Interrupted, terminating processes...")
         for process in processes:
+            # TODO: Change to SIGINT to allow processes to perform tear down?
             process.terminate()
         for process in processes:
             process.join()

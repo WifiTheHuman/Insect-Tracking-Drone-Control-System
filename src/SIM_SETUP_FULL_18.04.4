@@ -1,0 +1,122 @@
+Simulation setup for a new ubuntu 18.04.4 on a VM
+The advantage of18.04 is that QGroundControl can be installed from the AppImage file.
+# Install pip
+sudo apt install python3-pip
+
+# Install Git: 
+sudo apt install git
+# Clone the insect tracking repo
+# Firmaware submodule: 
+git submodule update --init –recursive
+
+# From README.txt from InsectTrackingComms/UAV/WRC_SWARM_UAV_WORK-master:
+
+### ROS
+Firstly, you must configure your Ubuntu repositories to allow "restricted," "universe," and "multiverse." You can [follow the Ubuntu guide](https://help.ubuntu.com/community/Repositories/Ubuntu) for instructions on doing this.
+
+##Run the following commands (For ubuntu 16.04 replace melodic with kinetic):
+
+# Configure Repositories.
+sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+sudo apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
+sudo apt-get update
+# Install and Initialize ROS
+sudo apt-get install ros-melodic-desktop-full
+sudo apt install python-rosdep
+sudo rosdep init
+rosdep update
+# Add ROS environment variables to your bashrc.
+echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
+source ~/.bashrc
+The source ~/.bashrc command gave response, bash: /opt/ros/kinetic/setup.bash: No such file or directory
+# Install rosinstall
+sudo apt-get install python-rosinstall
+
+## Install Mavsdk 
+https://github.com/mavlink/MAVSDK/releases
+
+
+# Download zeromq
+cd ~
+wget https://github.com/zeromq/libzmq/releases/download/v4.2.2/zeromq-4.2.2.tar.gz
+
+# Unpack tarball package
+tar xvzf zeromq-4.2.2.tar.gz
+
+# Install dependency
+sudo apt-get update (previously: sudo apt-get update && \)
+sudo apt-get install -y libtool pkg-config build-essential autoconf automake uuid-dev
+
+# Create make file
+cd zeromq-4.2.2
+./configure
+
+# Build and install(root permission only)
+sudo make install
+
+# Install zeromq driver on linux
+sudo ldconfig
+sudo apt-get install python-zmq
+
+
+## Download QGroundControl AppImage from http://qgroundcontrol.com/downloads/
+
+# Remove modemanager as it interferes with QGroundControl and install gstreamer for video streaming
+sudo usermod -a -G dialout $USER
+sudo apt-get remove modemmanager -y
+sudo apt install gstreamer1.0-plugins-bad gstreamer1.0-libav gstreamer1.0-gl -y
+# Logout and login again to enable the change to user permissions
+
+# Install QGroundControl
+cd ~/Downloads
+chmod +x ./QGroundControl.AppImage
+./QGroundControl.AppImage (or double click, but less information on errors)Y
+
+# Gave messages:
+Qt localization for "en_NZ" is not present
+qrc:/qml/QGroundControl/Controls/ToolStrip.qml:100:21: Unable to assign [undefined] to bool
+qt.positioning.geoclue2: Unable to create the client object: "" ""
+QGCPositionManager error 0
+
+
+# Dependancies for running the simulation
+pip3 install --user toml
+pip3 install --user empy
+pip3 install --user packaging
+pip3 install --user numpy
+pip3 install --user jinja2
+sudo apt install libgstreamer-plugins-base1.0-dev
+sudo apt install ros-melodic-mavros ros-melodic-mavros-extras
+wget https://raw.githubusercontent.com/mavlink/mavros/master/mavros/scripts/install_geographiclib_datasets.sh
+sudo ./install_geographiclib_datasets.sh
+pip install pymavlink
+
+# To run the simulation
+# go to firmaware directory
+DONT_RUN=1 make px4_sitl_default gazebo
+source Tools/setup_gazebo.bash $(pwd) $(pwd)/build/px4_sitl_default
+export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd):$(pwd)/Tools/sitl_gazebo
+
+To launch the simulation, execute the following commands from the "Firmware" directory.
+This launches the gazebo simulation with one "iris" (quad) drone and starts the px4 softawre.
+The drone can be controlled using QGroundControl or MAVROS. The world used is a
+modified empty world setup to use latitude and longitude as a reference frame.
+
+roslaunch px4 mavros_posix_sitl.launch
+
+QGroundControl can be launched at any time but it should now be able to connect to
+the drone and control it.
+
+To control one drone using MAVROS and gps setpoints execute the following commands from the
+"Firmware" directory. This will launch the drone and hover at 20 m, continually updating
+the setpoint based on the position it recieves from a laptop over zmq. If the laptop stops
+sending position updates, the program will timeout and the drone will land.
+
+
+cd integrationtests/python_src/px4_it/mavros/
+python mavros_offboard_posctl.py
+
+# To send GPS coordinates from a file instead (without laptop and GPS module), open a new terminal on the NUC and run
+python src/server_data.py
+
+

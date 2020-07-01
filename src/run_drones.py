@@ -1,5 +1,6 @@
 """ Runs multiple drones simultaneously in separate processes.
     Use the --plot option to plot the drone positions on a graph.
+    Use the --sim option to simulate the drones in Gazebo.
 """
 
 import sys
@@ -20,11 +21,21 @@ def main():
         action='store_true',
         help='plots the drone and target positions on a graph during execution'
     )
+    parser.add_argument(
+        '-s',
+        '--sim',
+        action='store_true',
+        help='simulates the drones in Gazebo'
+    )
     args = parser.parse_args()
 
     processes = []
 
-    tx_args = ['--plot'] if args.plot else []
+    tx_args = []
+    if args.plot:
+        tx_args.append('--plot')
+    if args.sim:
+        tx_args.append('--sim')
     processes.append(
         Process(target=subprocess.run,
                 args=(["python3", "tx.py"] + tx_args, )))
@@ -44,6 +55,7 @@ def main():
     except KeyboardInterrupt:
         print("Interrupted, terminating processes...")
         for process in processes:
+            # TODO: Change to SIGINT to allow processes to perform tear down?
             process.terminate()
         for process in processes:
             process.join()

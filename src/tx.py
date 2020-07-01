@@ -4,7 +4,7 @@ import sys
 import matplotlib.pyplot as plt
 import argparse
 
-import multilateration
+import multilaterationv2
 import swarming_logic
 from gps import GPSCoord
 from packets import RxUpdate, TxUpdate
@@ -200,8 +200,11 @@ class TransmitterUAV:
         """
         rx_positions = self.updates.get_rx_positions()
         ranges = self.updates.get_ranges()
-        return multilateration.estimate_target_position(
-            self.tx_coords, rx_positions, ranges, NUM_RXS)
+
+        # TODO: remove once multilateration is fixed.
+        assert(NUM_RXS == 4, "Current multilateration version assumes 4 Rx's.")
+        return multilaterationv2.estimate_target_position(
+            self.tx_coords, *rx_positions, *ranges)
         
     def swarming_checks(self):
         """ Returns the desired centre position of the formation. 
